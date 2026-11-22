@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NicoRate BEADS STUDIO - Prototype 0.1</title>
+<title>NicoRate BEADS STUDIO - Prototype 0.3</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#222;background:#f4f5f7}
 *{box-sizing:border-box}body{margin:0}header{background:#24104f;color:#fff;padding:18px 20px}
@@ -27,7 +27,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </style>
 </head>
 <body>
-<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.1（RGB抽出テスト）</p></header>
+<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.3（RGB近似統合）</p></header>
 <main>
 <section class="panel">
 <h2>1. 画像を読み込む</h2>
@@ -67,7 +67,7 @@ function lineScores(d,axis){const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w,
 function findLines(scores){let peaks=[];for(let i=0;i<scores.length;i++)if(scores[i]>.48)peaks.push(i);let groups=[];for(const p of peaks){if(!groups.length||p>groups[groups.length-1].end+1)groups.push({start:p,end:p,sum:p,n:1});else{let z=groups[groups.length-1];z.end=p;z.sum+=p;z.n++}}return groups.filter(g=>g.n<=4).map(g=>Math.round(g.sum/g.n))}
 function detectAxis(scores){
  let best=null;
- for(let pitch=8;pitch<=30;pitch+=.1){
+ for(let pitch=8;pitch<=20;pitch+=.1){
   for(let phase=0;phase<pitch;phase+=.5){
    let pos=[];for(let x=phase;x<scores.length;x+=pitch)pos.push(Math.round(x));
    if(pos.length<4)continue;
