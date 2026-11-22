@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NicoRate BEADS STUDIO - Prototype 0.4</title>
+<title>NicoRate BEADS STUDIO - Prototype 0.5</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#222;background:#f4f5f7}
 *{box-sizing:border-box}body{margin:0}header{background:#24104f;color:#fff;padding:18px 20px}
@@ -16,6 +16,10 @@ label.upload{display:block;border:1px dashed #aaa;border-radius:9px;padding:13px
 input[type=file]{display:block;margin-top:8px;max-width:100%}
 button{background:#4d2b91;color:#fff;border:0;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer}
 button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.view-controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.view-controls button{padding:9px 13px;font-size:13px;background:#5b4a78}
+.view-controls button.active{background:#2f7d48}
+#result{display:block;max-width:100%;height:auto;margin:auto;image-rendering:pixelated;background:white}
 .note{font-size:12px;color:#666;line-height:1.6}.status{font-size:13px;color:#444;margin-top:10px;white-space:pre-wrap}
 .stats{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
 .preview-wrap{overflow:auto;max-height:75vh;background:#eee;padding:10px;border-radius:8px;text-align:center}
@@ -27,7 +31,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </style>
 </head>
 <body>
-<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.4（RGB近似統合修正版）</p></header>
+<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.5（番号付き図案・反転対応）</p></header>
 <main>
 <section class="panel">
 <h2>1. 画像を読み込む</h2>
@@ -46,7 +50,13 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <section class="panel">
 <h2>2. 変換結果</h2>
 <div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
-<p class="note">各マスの中央付近を元イラストからサンプリングしています。表示倍率はマス目の数に合わせて調整されます。</p>
+<p class="note">各マスの中央付近を元イラストからサンプリングしています。番号は色ごとの管理番号です。</p>
+<div class="view-controls">
+<button id="gridToggle" class="active" type="button">マス目：ON</button>
+<button id="numberToggle" class="active" type="button">番号：ON</button>
+<button id="flipH" type="button">左右反転</button>
+<button id="flipV" type="button">上下反転</button>
+</div>
 <div class="preview-wrap"><canvas id="result"></canvas></div>
 </section>
 <section class="panel">
@@ -58,7 +68,10 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 const sourceInput=document.getElementById('sourceFile'), gridInput=document.getElementById('gridFile');
 const convertBtn=document.getElementById('convert'), downloadBtn=document.getElementById('download');
 const statusEl=document.getElementById('status'), canvas=document.getElementById('result'), ctx=canvas.getContext('2d',{willReadFrequently:true});
-let sourceImg=null,gridImg=null,lastColors=null;
+let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null;
+let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
+const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
+const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById('flipV');
 function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=reject;im.src=u})}
 async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sourceInput.files[0]):null;gridImg=gridInput.files[0]?await loadImage(gridInput.files[0]):null;convertBtn.disabled=!(sourceImg&&gridImg);statusEl.textContent=convertBtn.disabled?'2枚の画像を選択してください。':'画像を読み込みました。図案に変換できます。';}catch(e){statusEl.textContent='画像を読み込めませんでした。PNG/JPEG画像を確認してください。'}}
 sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
@@ -85,6 +98,27 @@ function detectGrid(d){
  return {xs,ys,cols:xs.length-1,rows:ys.length-1}
 }
 function sampleAverage(d,x,y,rx,ry){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,Math.floor(y-ry));yy<=Math.min(d.h-1,Math.ceil(y+ry));yy++)for(let xx=Math.max(0,Math.floor(x-rx));xx<=Math.min(d.w-1,Math.ceil(x+rx));xx++){let i=(yy*d.w+xx)*4;rr+=d.data[i];gg+=d.data[i+1];bb+=d.data[i+2];n++}return [Math.round(rr/n),Math.round(gg/n),Math.round(bb/n)]}
+function renderPattern(){
+ if(!lastColors)return;
+ const rows=lastColors.length,cols=lastColors[0].length,cell=24;
+ canvas.width=cols*cell;canvas.height=rows*cell;ctx.imageSmoothingEnabled=false;
+ for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+   const sx=flipHorizontal?cols-1-x:x,sy=flipVertical?rows-1-y:y;
+   const color=lastColors[sy][sx],number=lastNumbers[sy][sx];
+   ctx.fillStyle=`rgb(${color.join(',')})`;ctx.fillRect(x*cell,y*cell,cell,cell);
+   if(showGrid){ctx.strokeStyle='#222';ctx.lineWidth=1;ctx.strokeRect(x*cell+.5,y*cell+.5,cell,cell)}
+   if(showNumbers){
+     const luminance=.299*color[0]+.587*color[1]+.114*color[2];
+     ctx.fillStyle=luminance>150?'#111':'#fff';
+     ctx.font='bold 13px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+     ctx.fillText(String(number),x*cell+cell/2,y*cell+cell/2);
+   }
+ }
+}
+gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textContent=`マス目：${showGrid?'ON':'OFF'}`;gridToggle.classList.toggle('active',showGrid);renderPattern()});
+numberToggle.addEventListener('click',()=>{showNumbers=!showNumbers;numberToggle.textContent=`番号：${showNumbers?'ON':'OFF'}`;numberToggle.classList.toggle('active',showNumbers);renderPattern()});
+flipHBtn.addEventListener('click',()=>{flipHorizontal=!flipHorizontal;flipHBtn.classList.toggle('active',flipHorizontal);renderPattern()});
+flipVBtn.addEventListener('click',()=>{flipVertical=!flipVertical;flipVBtn.classList.toggle('active',flipVertical);renderPattern()});
 convertBtn.addEventListener('click',()=>{
  try{
  const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
@@ -132,18 +166,20 @@ convertBtn.addEventListener('click',()=>{
    });
    return [...clusters[best].rgb];
  }));
- const freq=new Map();
- colors.forEach(row=>row.forEach(c=>{const k=c.join(',');freq.set(k,(freq.get(k)||0)+1)}));
- const cell=12;canvas.width=grid.cols*cell;canvas.height=grid.rows*cell;ctx.imageSmoothingEnabled=false;
- colors.forEach((row,y)=>row.forEach((c,x)=>{ctx.fillStyle=`rgb(${c.join(',')})`;ctx.fillRect(x*cell,y*cell,cell,cell)}));
- lastColors=colors;document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
+ const freq=new Map(),numberByColor=new Map();let nextNumber=1;
+ colors.forEach(row=>row.forEach(c=>{const k=c.join(',');freq.set(k,(freq.get(k)||0)+1);if(!numberByColor.has(k))numberByColor.set(k,nextNumber++)}));
+ const numbers=colors.map(row=>row.map(c=>numberByColor.get(c.join(','))));
+ lastColors=colors;lastNumbers=numbers;flipHorizontal=false;flipVertical=false;
+ flipHBtn.classList.remove('active');flipVBtn.classList.remove('active');
+ renderPattern();
+ document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
  document.getElementById('count').textContent=`使用色数：${freq.size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  const pal=document.getElementById('palette');pal.innerHTML='';
- [...freq.entries()].sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{const el=document.createElement('div');el.className='swatch';const c=document.createElement('span');c.className='color';c.style.background=`rgb(${k})`;const t=document.createElement('span');t.textContent=`RGB(${k})　${n}マス`;el.append(c,t);pal.append(el)});
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下（全マス再割当て）\n※統合後の色と図案を確認してください。`;
+ [...freq.entries()].sort((a,b)=>numberByColor.get(a[0])-numberByColor.get(b[0])).forEach(([k,n])=>{const el=document.createElement('div');el.className='swatch';const c=document.createElement('span');c.className='color';c.style.background=`rgb(${k})`;const t=document.createElement('span');t.textContent=`管理番号 ${numberByColor.get(k)}｜RGB(${k})｜${n}マス`;el.append(c,t);pal.append(el)});
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下（全マス再割当て）\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
-downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-rgb.png';a.href=canvas.toDataURL('image/png');a.click()});
+downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=canvas.toDataURL('image/png');a.click()});
 </script>
 </body></html>
