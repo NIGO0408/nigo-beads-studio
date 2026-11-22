@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NicoRate BEADS STUDIO - Prototype 0.6</title>
+<title>NIGO BEADS STUDIO - Prototype 0.7</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#222;background:#f4f5f7}
 *{box-sizing:border-box}body{margin:0}header{background:#24104f;color:#fff;padding:18px 20px}
@@ -31,7 +31,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </style>
 </head>
 <body>
-<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.6（プレビュー拡大縮小対応）</p></header>
+<header><h1>NIGO BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.7（NicoRate近似色検索）</p></header>
 <main>
 <section class="panel">
 <h2>1. 画像を読み込む</h2>
@@ -64,8 +64,8 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <div class="preview-wrap"><canvas id="result"></canvas></div>
 </section>
 <section class="panel">
-<h2>3. 色の使用数（RGB）</h2>
-<div id="palette" class="note">変換すると色別のマス数が表示されます。</div>
+<h2>3. NicoRate対応色と使用数</h2>
+<p class="note">Shirobea公開データに登録されたNicoRateのRGB情報173色から、各色の最も近い候補を検索します。公式278色すべてのRGBが揃っているわけではありません。</p><div id="palette" class="note">変換すると近似するビーズNoと色名が表示されます。</div>
 </section>
 </main>
 <script>
@@ -128,6 +128,18 @@ gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textConte
 numberToggle.addEventListener('click',()=>{showNumbers=!showNumbers;numberToggle.textContent=`番号：${showNumbers?'ON':'OFF'}`;numberToggle.classList.toggle('active',showNumbers);renderPattern()});
 flipHBtn.addEventListener('click',()=>{flipHorizontal=!flipHorizontal;flipHBtn.classList.toggle('active',flipHorizontal);renderPattern()});
 flipVBtn.addEventListener('click',()=>{flipVertical=!flipVertical;flipVBtn.classList.toggle('active',flipVertical);renderPattern()});
+
+// Shirobea公開ソースに登録されているNicoRate RGBデータ（173色）。
+// RGB値と名称は同ソースの登録内容を保持し、未登録色は推測で補完しない。
+const nicoRatePalette=[{"number":"001","name":"ホワイト","rgb":[255,255,255]},{"number":"002","name":"バター","rgb":[241,230,178]},{"number":"003","name":"イエロー","rgb":[255,215,0]},{"number":"004","name":"オレンジ","rgb":[255,130,0]},{"number":"005","name":"レッド","rgb":[239,51,64]},{"number":"006","name":"ピンク","rgb":[223,122,153]},{"number":"007","name":"パープル","rgb":[78,0,142]},{"number":"008","name":"ダークブルー","rgb":[0,35,156]},{"number":"009","name":"ブルー","rgb":[0,156,222]},{"number":"010","name":"グリーン","rgb":[0,150,94]},{"number":"011","name":"ペパーミント","rgb":[113,219,212]},{"number":"012","name":"ダークブラウン","rgb":[92,61,49]},{"number":"013","name":"グレー","rgb":[167,168,170]},{"number":"014","name":"ブラック","rgb":[0,0,0]},{"number":"016","name":"ブラウン","rgb":[153,85,43]},{"number":"017","name":"コーヒーブラウン","rgb":[152,106,76]},{"number":"018","name":"ネールピンク","rgb":[236,195,178]},{"number":"019","name":"ライトブラウン","rgb":[198,169,146]},{"number":"020","name":"マゼンタ","rgb":[239,75,129]},{"number":"025","name":"ヒヤシンス","rgb":[72,159,223]},{"number":"026","name":"ミントグリーン","rgb":[128,224,167]},{"number":"027","name":"ラベンダー","rgb":[191,155,222]},{"number":"028","name":"レモンイエロー","rgb":[242,240,161]},{"number":"029","name":"チーズ","rgb":[255,181,0]},{"number":"030","name":"ペールパステルブルー","rgb":[185,217,235]},{"number":"031","name":"コーラルレッド","rgb":[255,109,106]},{"number":"032","name":"ローズパープル","rgb":[191,77,165]},{"number":"033","name":"ライムグリーン","rgb":[122,204,0]},{"number":"034","name":"セルリアンブルー","rgb":[0,169,224]},{"number":"035","name":"パステルダークベージュ","rgb":[255,157,162]},{"number":"036","name":"ラピスラズリ","rgb":[131,141,200]},{"number":"038","name":"さくらいろ","rgb":[244,166,215]},{"number":"039","name":"アップルグリーン","rgb":[121,190,112]},{"number":"040","name":"ダークローズ","rgb":[215,67,136]},{"number":"041","name":"ラズベリー","rgb":[172,20,90]},{"number":"042","name":"コバルトブルー","rgb":[8,87,195]},{"number":"043","name":"キャラメル","rgb":[244,175,35]},{"number":"044","name":"パロットグリーン","rgb":[0,133,120]},{"number":"045","name":"カラスブラック","rgb":[83,86,90]},{"number":"046","name":"マリンブルー","rgb":[137,171,227]},{"number":"047","name":"マルーンブラウン","rgb":[124,37,41]},{"number":"048","name":"キウイ","rgb":[214,232,101]},{"number":"049","name":"ベージュ","rgb":[241,202,173]},{"number":"050","name":"ローシェンナ","rgb":[220,134,51]},{"number":"070","name":"ダークブラック","rgb":[33,39,33]},{"number":"071","name":"サファイアブルー","rgb":[0,87,183]},{"number":"072","name":"べにひいろ","rgb":[255,88,93]},{"number":"073","name":"ザクロ","rgb":[238,39,55]},{"number":"074","name":"ハナカイドウ","rgb":[252,155,179]},{"number":"075","name":"みずいろ","rgb":[164,219,232]},{"number":"076","name":"アイスミントグリーン","rgb":[185,220,210]},{"number":"077","name":"アイボリー","rgb":[248,245,227]},{"number":"078","name":"ナイルグリーン","rgb":[91,197,0]},{"number":"079","name":"ゴールデンイエロー","rgb":[241,196,0]},{"number":"080","name":"ネイビーブルー","rgb":[3,37,126]},{"number":"081","name":"ペールベージュ","rgb":[255,226,198]},{"number":"082","name":"セレストブルー","rgb":[98,181,229]},{"number":"083","name":"ダークグレー","rgb":[136,139,141]},{"number":"084","name":"ダークグリーン","rgb":[0,73,30]},{"number":"085","name":"はだいろ","rgb":[252,200,155]},{"number":"086","name":"ペールレッド","rgb":[233,205,208]},{"number":"087","name":"ペールグレー","rgb":[208,208,206]},{"number":"088","name":"ペールホワイト","rgb":[221,218,232]},{"number":"089","name":"ペールパープル","rgb":[197,180,227]},{"number":"090","name":"クロッカス","rgb":[198,161,207]},{"number":"091","name":"あおむらさきいろ","rgb":[33,21,81]},{"number":"092","name":"ダークレッド","rgb":[193,0,22]},{"number":"093","name":"カーマイン","rgb":[246,117,153]},{"number":"094","name":"バラ","rgb":[218,24,132]},{"number":"095","name":"ピーチ","rgb":[242,119,198]},{"number":"096","name":"マリーゴールド","rgb":[255,143,28]},{"number":"097","name":"ペールオレンジ","rgb":[255,174,98]},{"number":"098","name":"ジンジャーイエロー","rgb":[222,184,59]},{"number":"099","name":"オリーブ","rgb":[83,84,53]},{"number":"100","name":"ティファニーブルー","rgb":[100,204,201]},{"number":"101","name":"イエローオーカー","rgb":[180,126,0]},{"number":"102","name":"ダークベージュ","rgb":[212,173,103]},{"number":"103","name":"ライトベージュ","rgb":[247,206,215]},{"number":"104","name":"ワスレナグサ","rgb":[165,176,227]},{"number":"105","name":"しょうぶいろ","rgb":[193,167,226]},{"number":"106","name":"しこんいろ","rgb":[205,63,173]},{"number":"107","name":"パンジー","rgb":[128,39,108]},{"number":"108","name":"バイオレット","rgb":[40,0,113]},{"number":"109","name":"イエローベージュ","rgb":[253,208,134]},{"number":"110","name":"フラミンゴ","rgb":[255,160,106]},{"number":"111","name":"スターバックス","rgb":[29,105,96]},{"number":"112","name":"カーネーション","rgb":[249,159,201]},{"number":"113","name":"シアン","rgb":[0,166,200]},{"number":"114","name":"キャメルブラウン","rgb":[191,153,114]},{"number":"115","name":"ココナッツブラウン","rgb":[184,97,37]},{"number":"117","name":"ピーグリーン","rgb":[167,213,0]},{"number":"118","name":"ライトカーキ","rgb":[223,209,167]},{"number":"119","name":"アイスグリーン","rgb":[212,235,142]},{"number":"120","name":"ダークネイビーブルー","rgb":[34,50,110]},{"number":"121","name":"コンクリートグレー","rgb":[187,188,188]},{"number":"122","name":"ダークフォレストグリーン","rgb":[32,92,64]},{"number":"123","name":"マホガニー","rgb":[170,128,102]},{"number":"124","name":"ワインレッド","rgb":[162,0,103]},{"number":"125","name":"パープルロータス","rgb":[152,115,172]},{"number":"126","name":"ライトラベンダー","rgb":[200,216,235]},{"number":"127","name":"おうどいろ","rgb":[222,188,139]},{"number":"128","name":"ゼニスブルー","rgb":[159,174,229]},{"number":"129","name":"チョコレートブラウン","rgb":[98,52,18]},{"number":"130","name":"レイクブルー","rgb":[84,206,236]},{"number":"131","name":"サクラベージュ","rgb":[245,202,191]},{"number":"132","name":"オパールグリーン","rgb":[0,176,185]},{"number":"133","name":"ライトグリーン","rgb":[199,233,149]},{"number":"134","name":"メイプルレッド","rgb":[255,88,105]},{"number":"135","name":"しゅいろ","rgb":[255,106,57]},{"number":"136","name":"アイスミントブルー","rgb":[221,229,237]},{"number":"137","name":"チョコブラウン","rgb":[94,75,60]},{"number":"138","name":"コルク","rgb":[211,187,168]},{"number":"139","name":"ピンクベージュ","rgb":[225,187,180]},{"number":"140","name":"コーラル","rgb":[236,186,168]},{"number":"141","name":"オリーブグリーン","rgb":[128,140,36]},{"number":"142","name":"ベビーブルー","rgb":[177,201,232]},{"number":"143","name":"レグホーン","rgb":[214,210,196]},{"number":"144","name":"オイスターホワイト","rgb":[215,210,203]},{"number":"145","name":"スカイグレー","rgb":[177,179,179]},{"number":"146","name":"サンドホワイト","rgb":[219,200,182]},{"number":"147","name":"スプリンググリーン","rgb":[227,233,53]},{"number":"148","name":"チャイニーズレッド","rgb":[224,78,57]},{"number":"149","name":"ジェイブルー","rgb":[0,75,135]},{"number":"150","name":"ネオンイエロー","rgb":[247,234,72]},{"number":"153","name":"ライラック","rgb":[201,177,208]},{"number":"154","name":"サーモンピンク","rgb":[255,128,139]},{"number":"155","name":"グレープ","rgb":[177,78,181]},{"number":"156","name":"スカイブルー","rgb":[113,197,232]},{"number":"158","name":"ロイヤルパープル","rgb":[135,24,157]},{"number":"159","name":"タントンシー","rgb":[202,188,156]},{"number":"160","name":"カフェオレブラウン","rgb":[197,139,104]},{"number":"161","name":"ダークラベンダー","rgb":[162,120,156]},{"number":"162","name":"ミルクティーブラウン","rgb":[165,136,119]},{"number":"163","name":"アッシュグレー","rgb":[117,120,123]},{"number":"164","name":"ヘーゼルブラウン","rgb":[171,152,157]},{"number":"165","name":"シナモンブラウン","rgb":[214,128,107]},{"number":"166","name":"エバーグリーン","rgb":[80,109,133]},{"number":"167","name":"サンドグレー","rgb":[197,185,172]},{"number":"168","name":"フォググレー","rgb":[190,198,196]},{"number":"169","name":"パーチメント","rgb":[166,159,136]},{"number":"170","name":"ライトキャラメル","rgb":[171,146,120]},{"number":"171","name":"サンドブラウン","rgb":[193,178,162]},{"number":"172","name":"アイビーグリーン","rgb":[146,172,160]},{"number":"173","name":"チャコールグレー","rgb":[76,54,58]},{"number":"174","name":"メロングリーン","rgb":[0,179,136]},{"number":"175","name":"アイスミントライム","rgb":[181,227,216]},{"number":"191","name":"カッパーレッド","rgb":[186,12,47]},{"number":"192","name":"アルパイングリーン","rgb":[91,92,74]},{"number":"193","name":"ビリジアン","rgb":[0,111,98]},{"number":"194","name":"ピーコックグリーン","rgb":[39,153,137]},{"number":"195","name":"レッドゴールド","rgb":[237,155,51]},{"number":"196","name":"ミッドナイトブルー","rgb":[0,51,73]},{"number":"197","name":"ダークスカイブルー","rgb":[0,125,186]},{"number":"198","name":"ブルーパープル","rgb":[68,73,156]},{"number":"199","name":"キャラメルブラウン","rgb":[164,90,42]},{"number":"200","name":"チャコールブラック","rgb":[49,38,29]},{"number":"201","name":"ひそくいろ","rgb":[164,188,194]},{"number":"202","name":"ターコイズブルー","rgb":[0,133,155]},{"number":"234","name":"ネイビー","rgb":[77,73,190]},{"number":"235","name":"マルベリーパープル","rgb":[165,132,150]},{"number":"236","name":"アイアングレー","rgb":[162,172,171]},{"number":"237","name":"フクシアパープル","rgb":[207,135,157]},{"number":"238","name":"ローズグレー","rgb":[202,167,181]},{"number":"239","name":"ナイルブルー","rgb":[89,190,201]},{"number":"240","name":"フォレストグリーン","rgb":[104,152,129]},{"number":"241","name":"ベビーピンク","rgb":[222,190,210]},{"number":"242","name":"サンフラワー","rgb":[255,200,69]},{"number":"243","name":"ダークピンク","rgb":[205,84,91]},{"number":"244","name":"ライトパープル","rgb":[111,121,189]},{"number":"245","name":"シェルピンク","rgb":[232,146,124]},{"number":"246","name":"サーモン","rgb":[219,123,81]},{"number":"247","name":"ライトカフェオレ","rgb":[173,124,89]},{"number":"248","name":"アンティックゴールド","rgb":[137,122,39]}];
+function rgbDistance(a,b){
+ const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];
+ return Math.sqrt(dr*dr+dg*dg+db*db);
+}
+function findClosestNicoRate(rgb){
+ return nicoRatePalette.map(bead=>({...bead,distance:rgbDistance(rgb,bead.rgb)}))
+   .sort((a,b)=>a.distance-b.distance);
+}
 convertBtn.addEventListener('click',()=>{
  try{
  const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
@@ -175,18 +187,34 @@ convertBtn.addEventListener('click',()=>{
    });
    return [...clusters[best].rgb];
  }));
- const freq=new Map(),numberByColor=new Map();let nextNumber=1;
- colors.forEach(row=>row.forEach(c=>{const k=c.join(',');freq.set(k,(freq.get(k)||0)+1);if(!numberByColor.has(k))numberByColor.set(k,nextNumber++)}));
- const numbers=colors.map(row=>row.map(c=>numberByColor.get(c.join(','))));
- lastColors=colors;lastNumbers=numbers;flipHorizontal=false;flipVertical=false;
+ // RGB近似統合後の色を、ShirobeaのNicoRate登録RGBと照合する。
+ // 同じ公式ビーズNo.に割り当てられた色は、必要個数をまとめて集計する。
+ const beadGroups=new Map();
+ colors.forEach(row=>row.forEach(rgb=>{
+   const bead=findClosestNicoRate(rgb)[0];
+   if(!beadGroups.has(bead.number))beadGroups.set(bead.number,{bead,count:0,distanceSum:0});
+   const group=beadGroups.get(bead.number);group.count++;group.distanceSum+=bead.distance;
+ }));
+ const managerNoByBead=new Map();let nextManagerNo=1;
+ [...beadGroups.keys()].forEach(no=>managerNoByBead.set(no,nextManagerNo++));
+ const matchedColors=colors.map(row=>row.map(rgb=>findClosestNicoRate(rgb)[0].rgb));
+ const numbers=colors.map(row=>row.map(rgb=>managerNoByBead.get(findClosestNicoRate(rgb)[0].number)));
+ lastColors=matchedColors;lastNumbers=numbers;flipHorizontal=false;flipVertical=false;
  flipHBtn.classList.remove('active');flipVBtn.classList.remove('active');
  renderPattern();
  document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
- document.getElementById('count').textContent=`使用色数：${freq.size}`;
+ document.getElementById('count').textContent=`使用ビーズ色数：${beadGroups.size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  const pal=document.getElementById('palette');pal.innerHTML='';
- [...freq.entries()].sort((a,b)=>numberByColor.get(a[0])-numberByColor.get(b[0])).forEach(([k,n])=>{const el=document.createElement('div');el.className='swatch';const c=document.createElement('span');c.className='color';c.style.background=`rgb(${k})`;const t=document.createElement('span');t.textContent=`管理番号 ${numberByColor.get(k)}｜RGB(${k})｜${n}マス`;el.append(c,t);pal.append(el)});
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下（全マス再割当て）\n色ごとに管理番号を付与しました。`;
+ [...beadGroups.values()].sort((a,b)=>managerNoByBead.get(a.bead.number)-managerNoByBead.get(b.bead.number)).forEach(group=>{
+   const el=document.createElement('div');el.className='swatch';
+   const c=document.createElement('span');c.className='color';c.style.background=`rgb(${group.bead.rgb.join(',')})`;
+   const t=document.createElement('span');
+   const avgDistance=(group.distanceSum/group.count).toFixed(1);
+   t.textContent=`管理番号 ${managerNoByBead.get(group.bead.number)}｜ビーズNo. ${group.bead.number} ${group.bead.name}｜RGB(${group.bead.rgb.join(',')})｜${group.count}マス｜RGB距離 ${avgDistance}`;
+   el.append(c,t);pal.append(el);
+ });
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色から最も近い色を選択\n公式278色のうちRGB未登録の色は今回の検索対象外です。\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=canvas.toDataURL('image/png');a.click()});
