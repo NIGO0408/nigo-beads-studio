@@ -290,12 +290,11 @@ function renderPalette(){
 
    const select=document.createElement('select');
    select.setAttribute('aria-label',`番号${g.managerNo}のビーズ色`);
-   nicoRatePalette.forEach(optionBead=>{
-     const option=document.createElement('option');option.value=optionBead.number;
-     const candidate=g.candidates.find(c=>c.number===optionBead.number);
-     option.textContent=candidate
-       ?`${optionBead.number} ${optionBead.name}（${similarityPercent(candidate.deltaE).toFixed(1)}%）`
-       :`${optionBead.number} ${optionBead.name}`;
+   // 候補はCIEDE2000の色差が小さい順（近似度が高い順）に並んでいる。
+   g.candidates.forEach(candidate=>{
+     const option=document.createElement('option');
+     option.value=candidate.number;
+     option.textContent=`${candidate.number} ${candidate.name}（近似度 ${similarityPercent(candidate.deltaE).toFixed(1)}%）`;
      select.append(option);
    });
    select.value=bead.number;
