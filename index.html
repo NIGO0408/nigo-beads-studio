@@ -27,7 +27,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </style>
 </head>
 <body>
-<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.2（格子検出修正版）</p></header>
+<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.1（RGB抽出テスト）</p></header>
 <main>
 <section class="panel">
 <h2>1. 画像を読み込む</h2>
@@ -67,7 +67,7 @@ function lineScores(d,axis){const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w,
 function findLines(scores){let peaks=[];for(let i=0;i<scores.length;i++)if(scores[i]>.48)peaks.push(i);let groups=[];for(const p of peaks){if(!groups.length||p>groups[groups.length-1].end+1)groups.push({start:p,end:p,sum:p,n:1});else{let z=groups[groups.length-1];z.end=p;z.sum+=p;z.n++}}return groups.filter(g=>g.n<=4).map(g=>Math.round(g.sum/g.n))}
 function detectAxis(scores){
  let best=null;
- for(let pitch=8;pitch<=20;pitch+=.1){
+ for(let pitch=8;pitch<=30;pitch+=.1){
   for(let phase=0;phase<pitch;phase+=.5){
    let pos=[];for(let x=phase;x<scores.length;x+=pitch)pos.push(Math.round(x));
    if(pos.length<4)continue;
@@ -76,7 +76,6 @@ function detectAxis(scores){
   }
  }
  if(!best||best.mean<.35)throw Error('格子線を検出できません。線を黒く、均等にしてください。');
- // 1本おきの格子線を採用しないよう、今回の標準的なセル間隔に合わせて探索幅を調整。
  // Refine each predicted line to the darkest nearby pixel.
  return best.pos.map(x=>{let lo=Math.max(0,x-2),hi=Math.min(scores.length-1,x+2),b=x;for(let j=lo;j<=hi;j++)if(scores[j]>scores[b])b=j;return b})
 }
@@ -90,13 +89,32 @@ convertBtn.addEventListener('click',()=>{
  try{
  const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
  // Images represent the same full canvas; map grid-image coordinates proportionally to the source.
- const colors=[],freq=new Map();
+ const rawColors=[];
  for(let y=0;y<grid.rows;y++){let row=[];for(let x=0;x<grid.cols;x++){
  const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
  const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
- const c=sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8));
- row.push(c);const k=c.join(',');freq.set(k,(freq.get(k)||0)+1);
- }colors.push(row)}
+ row.push(sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8)));
+ }rawColors.push(row)}
+ // RGB近似統合：代表色とのRGBユークリッド距離が6以下なら同じ色としてまとめる。
+ // 代表色はグループ内の平均RGB。色の連鎖的な過剰統合を避けるため、逐次更新した代表色と比較する。
+ const tolerance=6,clusters=[];
+ function nearestCluster(rgb){
+   let best=-1,bestDist=Infinity;
+   for(let i=0;i<clusters.length;i++){
+     const c=clusters[i],dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
+     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+     if(dist<=tolerance&&dist<bestDist){best=i;bestDist=dist}
+   }
+   return best;
+ }
+ const colors=rawColors.map(row=>row.map(rgb=>{
+   let idx=nearestCluster(rgb);
+   if(idx<0){clusters.push({sum:[...rgb],count:1,rgb:[...rgb]});idx=clusters.length-1}
+   else{const c=clusters[idx];c.sum=c.sum.map((v,i)=>v+rgb[i]);c.count++;c.rgb=c.sum.map(v=>Math.round(v/c.count))}
+   return clusters[idx].rgb;
+ }));
+ const freq=new Map();
+ colors.forEach(row=>row.forEach(c=>{const k=c.join(',');freq.set(k,(freq.get(k)||0)+1)}));
  const cell=12;canvas.width=grid.cols*cell;canvas.height=grid.rows*cell;ctx.imageSmoothingEnabled=false;
  colors.forEach((row,y)=>row.forEach((c,x)=>{ctx.fillStyle=`rgb(${c.join(',')})`;ctx.fillRect(x*cell,y*cell,cell,cell)}));
  lastColors=colors;document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
@@ -104,7 +122,7 @@ convertBtn.addEventListener('click',()=>{
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  const pal=document.getElementById('palette');pal.innerHTML='';
  [...freq.entries()].sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{const el=document.createElement('div');el.className='swatch';const c=document.createElement('span');c.className='color';c.style.background=`rgb(${k})`;const t=document.createElement('span');t.textContent=`RGB(${k})　${n}マス`;el.append(c,t);pal.append(el)});
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n※格子線の検出と色の対応は、実際の図案と見比べて確認してください。`;
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下\n※統合後の色と図案を確認してください。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-rgb.png';a.href=canvas.toDataURL('image/png');a.click()});
