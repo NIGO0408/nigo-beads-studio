@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NicoRate BEADS STUDIO - Prototype 0.3</title>
+<title>NicoRate BEADS STUDIO - Prototype 0.4</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#222;background:#f4f5f7}
 *{box-sizing:border-box}body{margin:0}header{background:#24104f;color:#fff;padding:18px 20px}
@@ -27,7 +27,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </style>
 </head>
 <body>
-<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.3（RGB近似統合）</p></header>
+<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.4（RGB近似統合修正版）</p></header>
 <main>
 <section class="panel">
 <h2>1. 画像を読み込む</h2>
@@ -95,23 +95,42 @@ convertBtn.addEventListener('click',()=>{
  const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
  row.push(sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8)));
  }rawColors.push(row)}
- // RGB近似統合：代表色とのRGBユークリッド距離が6以下なら同じ色としてまとめる。
- // 代表色はグループ内の平均RGB。色の連鎖的な過剰統合を避けるため、逐次更新した代表色と比較する。
+ // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
+ // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
  const tolerance=6,clusters=[];
- function nearestCluster(rgb){
+ const uniqueCounts=new Map();
+ rawColors.forEach(row=>row.forEach(rgb=>{
+   const key=rgb.join(',');
+   uniqueCounts.set(key,(uniqueCounts.get(key)||0)+1);
+ }));
+ const uniqueColors=[...uniqueCounts.entries()].map(([key,count])=>({rgb:key.split(',').map(Number),count}));
+ // 出現数の多い色から代表色を作り、近い色をそのグループへ加える。
+ uniqueColors.sort((a,b)=>b.count-a.count);
+ uniqueColors.forEach(item=>{
    let best=-1,bestDist=Infinity;
    for(let i=0;i<clusters.length;i++){
-     const c=clusters[i],dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
+     const c=clusters[i],dr=item.rgb[0]-c.rgb[0],dg=item.rgb[1]-c.rgb[1],db=item.rgb[2]-c.rgb[2];
      const dist=Math.sqrt(dr*dr+dg*dg+db*db);
      if(dist<=tolerance&&dist<bestDist){best=i;bestDist=dist}
    }
-   return best;
- }
+   if(best<0){
+     clusters.push({sum:item.rgb.map(v=>v*item.count),count:item.count,rgb:[...item.rgb]});
+   }else{
+     const c=clusters[best];
+     c.sum=c.sum.map((v,i)=>v+item.rgb[i]*item.count);
+     c.count+=item.count;
+     c.rgb=c.sum.map(v=>Math.round(v/c.count));
+   }
+ });
+ // 最終的に確定した代表色へ全セルを再割り当てする。
  const colors=rawColors.map(row=>row.map(rgb=>{
-   let idx=nearestCluster(rgb);
-   if(idx<0){clusters.push({sum:[...rgb],count:1,rgb:[...rgb]});idx=clusters.length-1}
-   else{const c=clusters[idx];c.sum=c.sum.map((v,i)=>v+rgb[i]);c.count++;c.rgb=c.sum.map(v=>Math.round(v/c.count))}
-   return clusters[idx].rgb;
+   let best=0,bestDist=Infinity;
+   clusters.forEach((c,i)=>{
+     const dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
+     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+     if(dist<bestDist){best=i;bestDist=dist}
+   });
+   return [...clusters[best].rgb];
  }));
  const freq=new Map();
  colors.forEach(row=>row.forEach(c=>{const k=c.join(',');freq.set(k,(freq.get(k)||0)+1)}));
@@ -122,7 +141,7 @@ convertBtn.addEventListener('click',()=>{
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  const pal=document.getElementById('palette');pal.innerHTML='';
  [...freq.entries()].sort((a,b)=>b[1]-a[1]).forEach(([k,n])=>{const el=document.createElement('div');el.className='swatch';const c=document.createElement('span');c.className='color';c.style.background=`rgb(${k})`;const t=document.createElement('span');t.textContent=`RGB(${k})　${n}マス`;el.append(c,t);pal.append(el)});
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下\n※統合後の色と図案を確認してください。`;
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下（全マス再割当て）\n※統合後の色と図案を確認してください。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-rgb.png';a.href=canvas.toDataURL('image/png');a.click()});
