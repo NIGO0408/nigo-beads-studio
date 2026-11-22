@@ -27,8 +27,8 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 #palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
 .swatch{display:flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:7px;padding:6px;font-size:12px}
 .color{width:25px;height:25px;border:1px solid #999;flex:none}
-.swatch{align-items:flex-start;min-width:0}
-.swatch .swatch-info{min-width:0;flex:1;line-height:1.5}
+.swatch{align-items:flex-start;min-width:0;padding:7px}
+.swatch .swatch-info{min-width:0;flex:1;line-height:1.55;overflow-wrap:anywhere}
 .swatch select{display:block;width:100%;margin-top:5px;padding:5px;border:1px solid #bbb;border-radius:5px;font-size:12px}
 .swatch .match{font-weight:700;color:#28743c}
 .swatch .muted{color:#666}
@@ -273,12 +273,23 @@ function renderPalette(){
    const swatch=document.createElement('span');swatch.className='color';
    swatch.style.background=`rgb(${bead.rgb.join(',')})`;
    const info=document.createElement('div');info.className='swatch-info';
-   const title=document.createElement('strong');title.textContent=`番号 ${g.managerNo}｜${bead.number} ${bead.name}`;
-   const rgb=document.createElement('div');rgb.textContent=`RGB（${g.rgb.join(', ')}）`;
-   const count=document.createElement('div');count.textContent=`${g.count}マス`;
-   const match=document.createElement('div');match.className='match';match.textContent=`近似度 ${percent.toFixed(1)}%`;
-   const distance=document.createElement('div');distance.className='muted';distance.textContent=`ΔE2000：${de.toFixed(2)}`;
-   const select=document.createElement('select');select.setAttribute('aria-label',`番号${g.managerNo}のビーズ色`);
+
+   const line=(text,cls='')=>{
+     const node=document.createElement('div');
+     if(cls)node.className=cls;
+     node.textContent=text;
+     info.append(node);
+     return node;
+   };
+   line(`番号 ${g.managerNo}｜${g.count}`);
+   line(`${bead.number} ${bead.name}`);
+   line('RGB');
+   line(`(${g.rgb.join(', ')})`);
+   line(`近似値：${percent.toFixed(1)}%`,'match');
+   line(`ΔE2000：${de.toFixed(2)}`,'muted');
+
+   const select=document.createElement('select');
+   select.setAttribute('aria-label',`番号${g.managerNo}のビーズ色`);
    nicoRatePalette.forEach(optionBead=>{
      const option=document.createElement('option');option.value=optionBead.number;
      const candidate=g.candidates.find(c=>c.number===optionBead.number);
@@ -293,7 +304,7 @@ function renderPalette(){
      updatePatternFromSelections();renderPattern();renderPalette();
      document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
    });
-   info.append(title,rgb,count,match,distance,select);
+   info.append(select);
    el.append(swatch,info);pal.append(el);
  });
 }
