@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NicoRate BEADS STUDIO - Prototype 0.5</title>
+<title>NicoRate BEADS STUDIO - Prototype 0.6</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#222;background:#f4f5f7}
 *{box-sizing:border-box}body{margin:0}header{background:#24104f;color:#fff;padding:18px 20px}
@@ -19,11 +19,11 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 .view-controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 .view-controls button{padding:9px 13px;font-size:13px;background:#5b4a78}
 .view-controls button.active{background:#2f7d48}
-#result{display:block;max-width:100%;height:auto;margin:auto;image-rendering:pixelated;background:white}
+#result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
 .note{font-size:12px;color:#666;line-height:1.6}.status{font-size:13px;color:#444;margin-top:10px;white-space:pre-wrap}
 .stats{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
 .preview-wrap{overflow:auto;max-height:75vh;background:#eee;padding:10px;border-radius:8px;text-align:center}
-#result{display:block;max-width:100%;height:auto;margin:auto;image-rendering:pixelated;background:white}
+#result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
 #palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
 .swatch{display:flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:7px;padding:6px;font-size:12px}
 .color{width:25px;height:25px;border:1px solid #999;flex:none}
@@ -31,7 +31,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </style>
 </head>
 <body>
-<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.5（番号付き図案・反転対応）</p></header>
+<header><h1>NicoRate BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 0.6（プレビュー拡大縮小対応）</p></header>
 <main>
 <section class="panel">
 <h2>1. 画像を読み込む</h2>
@@ -52,6 +52,10 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
 <p class="note">各マスの中央付近を元イラストからサンプリングしています。番号は色ごとの管理番号です。</p>
 <div class="view-controls">
+<label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
+<select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
+<option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option>
+</select></label>
 <button id="gridToggle" class="active" type="button">マス目：ON</button>
 <button id="numberToggle" class="active" type="button">番号：ON</button>
 <button id="flipH" type="button">左右反転</button>
@@ -72,6 +76,8 @@ let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null;
 let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
 const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
 const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById('flipV');
+const zoomSelect=document.getElementById('zoomSelect');
+let previewZoom=1;
 function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=reject;im.src=u})}
 async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sourceInput.files[0]):null;gridImg=gridInput.files[0]?await loadImage(gridInput.files[0]):null;convertBtn.disabled=!(sourceImg&&gridImg);statusEl.textContent=convertBtn.disabled?'2枚の画像を選択してください。':'画像を読み込みました。図案に変換できます。';}catch(e){statusEl.textContent='画像を読み込めませんでした。PNG/JPEG画像を確認してください。'}}
 sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
@@ -102,6 +108,8 @@ function renderPattern(){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
  canvas.width=cols*cell;canvas.height=rows*cell;ctx.imageSmoothingEnabled=false;
+ canvas.style.width=(canvas.width*previewZoom)+'px';
+ canvas.style.height=(canvas.height*previewZoom)+'px';
  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
    const sx=flipHorizontal?cols-1-x:x,sy=flipVertical?rows-1-y:y;
    const color=lastColors[sy][sx],number=lastNumbers[sy][sx];
@@ -115,6 +123,7 @@ function renderPattern(){
    }
  }
 }
+zoomSelect.addEventListener('change',()=>{previewZoom=Number(zoomSelect.value)||1;renderPattern()});
 gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textContent=`マス目：${showGrid?'ON':'OFF'}`;gridToggle.classList.toggle('active',showGrid);renderPattern()});
 numberToggle.addEventListener('click',()=>{showNumbers=!showNumbers;numberToggle.textContent=`番号：${showNumbers?'ON':'OFF'}`;numberToggle.classList.toggle('active',showNumbers);renderPattern()});
 flipHBtn.addEventListener('click',()=>{flipHorizontal=!flipHorizontal;flipHBtn.classList.toggle('active',flipHorizontal);renderPattern()});
