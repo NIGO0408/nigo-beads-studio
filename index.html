@@ -1,312 +1,56 @@
 <!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NIGO BEADS STUDIO - Prototype 7.0</title>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NIGO BEADS STUDIO v1.0 prototype</title>
 <style>
-:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#222;background:#f4f5f7}
-*{box-sizing:border-box}body{margin:0}header{background:#24104f;color:#fff;padding:18px 20px}
-header h1{font-size:20px;margin:0 0 4px}header p{margin:0;color:#ddd;font-size:13px}
-main{max-width:1100px;margin:20px auto;padding:0 14px}
-.panel{background:white;border:1px solid #ddd;border-radius:12px;padding:16px;margin-bottom:14px}
-h2{font-size:17px;margin:0 0 12px}
-.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
-label.upload{display:block;border:1px dashed #aaa;border-radius:9px;padding:13px;background:#fafafa;font-size:14px}
-input[type=file]{display:block;margin-top:8px;max-width:100%}
-button{background:#4d2b91;color:#fff;border:0;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer}
-button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
-.view-controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-.view-controls button{padding:9px 13px;font-size:13px;background:#5b4a78}
-.view-controls button.active{background:#2f7d48}
-#result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
-.note{font-size:12px;color:#666;line-height:1.6}.status{font-size:13px;color:#444;margin-top:10px;white-space:pre-wrap}
-.stats{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
-.preview-wrap{overflow:auto;max-height:75vh;background:#eee;padding:10px;border-radius:8px;text-align:center}
-#result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
-#palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
-.swatch{display:flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:7px;padding:6px;font-size:12px}
-.color{width:25px;height:25px;border:1px solid #999;flex:none}
-.swatch{align-items:flex-start;min-width:0;padding:7px}
-.swatch .swatch-info{min-width:0;flex:1;line-height:1.55;overflow-wrap:anywhere}
-.swatch select{display:block;width:100%;margin-top:5px;padding:5px;border:1px solid #bbb;border-radius:5px;font-size:12px}
-.swatch .match{font-weight:700;color:#28743c}
-.swatch .muted{color:#666}
-@media(max-width:600px){header h1{font-size:18px}.panel{padding:12px}}
-</style>
-</head>
-<body>
-<header><h1>NIGO BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜試作版 7.0（CIEDE2000色照合・手動変更）</p></header>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#25232b;background:#f3f2f6}*{box-sizing:border-box}body{margin:0}header{background:#24104f;color:white;padding:15px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}h1{font-size:21px;margin:0}header p{margin:3px 0 0;color:#ddd;font-size:12px}.save-state{font-size:12px;color:#eee}main{max-width:1500px;margin:16px auto;padding:0 14px}.panel{background:#fff;border:1px solid #dedbe5;border-radius:12px;padding:15px;margin-bottom:13px;box-shadow:0 2px 8px #25104f0a}h2{font-size:16px;margin:0 0 12px}.setup{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px;align-items:end}.field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#514b5b}.field input,.field select{width:100%;min-width:0;padding:9px;border:1px solid #c9c4d1;border-radius:7px;background:white;color:#222}.upload{grid-column:span 2}.actions,.toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:11px}button{border:0;border-radius:7px;padding:9px 13px;background:#4d2b91;color:white;font-weight:650;cursor:pointer}button.secondary{background:#675d75}button.light{background:#eeeaf4;color:#34244e}button:disabled{opacity:.45;cursor:not-allowed}.layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:13px;align-items:start}.side{min-width:0}.side .panel{margin-bottom:13px}.canvas-panel{min-width:0}.stats{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:10px}.tools{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.tools button{font-size:12px;padding:8px 5px}.tools button.active{background:#287d4b}.palette-list{display:flex;flex-direction:column;gap:6px;max-height:430px;overflow:auto}.swatch{display:grid;grid-template-columns:25px 1fr;gap:7px;align-items:start;border:1px solid #ddd;border-radius:7px;padding:7px;cursor:pointer;font-size:11px}.swatch.active{outline:2px solid #5b36a1;border-color:#5b36a1;background:#f8f4ff}.chip{width:24px;height:24px;border:1px solid #aaa;border-radius:4px}.swatch select{width:100%;margin-top:4px;font-size:11px;padding:4px;border:1px solid #ccc;border-radius:5px}.muted{color:#777;font-size:11px;line-height:1.5}.preview-wrap{height:min(72vh,780px);min-height:380px;overflow:auto;background:#e9e7ed;border-radius:9px;padding:18px;position:relative;cursor:crosshair}#result{display:block;image-rendering:pixelated;max-width:none;background:white;box-shadow:0 1px 6px #0002;touch-action:none}.canvas-toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:10px 0}.canvas-toolbar label{font-size:12px}.canvas-toolbar input[type=range]{width:110px}.status{font-size:12px;white-space:pre-wrap;color:#4e4659;margin-top:9px;min-height:18px}.status.ok{color:#287d4b}.status.err{color:#b3261e}.hidden{display:none!important}.badge{display:inline-block;background:#eeeaf4;padding:3px 7px;border-radius:20px;font-size:11px}.qty{font-variant-numeric:tabular-nums}.file-actions{display:flex;gap:6px;flex-wrap:wrap}.footnote{font-size:11px;color:#716b79;line-height:1.6;margin:9px 0 0}@media(max-width:900px){.layout{grid-template-columns:1fr}.setup{grid-template-columns:repeat(2,minmax(0,1fr))}.upload{grid-column:span 2}.side{display:grid;grid-template-columns:1fr 1fr;gap:12px}.side .panel{margin-bottom:0}}@media(max-width:600px){header{padding:12px}h1{font-size:18px}.setup{grid-template-columns:1fr 1fr}.side{display:block}.side .panel{margin-bottom:12px}.preview-wrap{min-height:300px;height:60vh}}
+</style></head><body>
+<header><div><h1>NIGO BEADS STUDIO</h1><p>アイロンビーズ図案メーカー｜v1.0 試作版</p></div><div id="saveState" class="save-state">● 未保存</div></header>
 <main>
-<section class="panel">
-<h2>1. 画像を読み込む</h2>
-<div class="inputs">
-<label class="upload">元イラスト（格子なし）
-<input id="sourceFile" type="file" accept="image/png,image/jpeg,image/webp">
-</label>
-<label class="upload">格子を重ねた画像
-<input id="gridFile" type="file" accept="image/png,image/jpeg,image/webp">
-</label>
+<section class="panel"><h2>1. 画像変換</h2><div class="setup">
+<label class="field upload">元画像（1枚）<input id="sourceFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
+<label class="field">変換モード<select id="mode"><option value="A">A：ダイレクト</option><option value="B">B：イラスト調</option><option value="C">C：高精細</option></select></label>
+<label class="field">横マス数<input id="cols" type="number" min="4" max="300" value="48"></label>
+<label class="field">最大色数<input id="maxColors" type="number" min="1" max="173" value="40"></label>
+</div><div class="actions"><button id="convert" disabled>図案に変換</button><button id="reconvert" class="secondary" disabled>設定で再変換</button><button id="saveNow" class="light">保存</button><button id="exportProject" class="light">プロジェクトを書き出す</button><label class="field" style="display:inline-flex;flex-direction:row;align-items:center">プロジェクト読込<input id="importProject" type="file" accept=".nbs,application/json"></label></div><div id="status" class="status">元画像を1枚選択してください。</div><p class="footnote">縦マス数は元画像の縦横比から自動計算します。変換モードは試作段階の簡易アルゴリズムです。色照合は登録済みNicoRate 173色を使用します。</p></section>
+<div class="layout">
+<aside class="side">
+<section class="panel"><h2>2. 編集ツール</h2><div class="tools"><button data-tool="paint" class="active">編集</button><button data-tool="pan">移動</button><button data-tool="fill">塗りつぶし</button><button data-tool="erase">消しゴム</button></div><div class="actions"><button id="undo" class="light" disabled>↶ 元に戻す</button><button id="redo" class="light" disabled>↷ やり直す</button></div><p class="muted">編集：左側の色一覧から色を選び、マス目をクリック／ドラッグ。移動：図案をドラッグ。塗りつぶしは上下左右につながる同色領域が対象です。</p></section>
+<section class="panel"><h2>3. 表示・書き出し</h2><div class="tools"><button id="gridToggle" class="active">境界線：ON</button><button id="numberToggle">番号：OFF</button></div><div class="canvas-toolbar"><label>倍率 <input id="zoom" type="range" min="25" max="500" value="100"></label><span id="zoomLabel">100%</span><button id="fit" class="light">全体表示</button></div><div class="file-actions"><button id="png" disabled>PNG保存</button><button id="csv" disabled>色一覧CSV</button></div></section>
+<section class="panel"><h2>4. ビーズ数量</h2><div id="summary" class="muted">変換すると色別の数量が表示されます。</div></section>
+</aside>
+<section class="panel canvas-panel"><h2>図案編集エリア</h2><div class="stats"><span id="dimensions">マス目：未作成</span><span id="colorCount">使用色数：-</span><span id="cellCount">総マス数：-</span></div><div class="preview-wrap" id="viewport"><canvas id="result"></canvas></div></section>
 </div>
-<p class="note">2枚は同じイラスト・同じ縦横比で用意してください。格子画像は黒など、背景や絵と区別しやすい線がおすすめです。</p>
-<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button></div>
-<div id="status" class="status">2枚の画像を選択してください。</div>
-</section>
-<section class="panel">
-<h2>2. 変換結果</h2>
-<div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
-<p class="note">各マスの中央付近を元イラストからサンプリングしています。番号は色ごとの管理番号です。</p>
-<div class="view-controls">
-<label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
-<select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
-<option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option>
-</select></label>
-<button id="gridToggle" class="active" type="button">マス目：ON</button>
-<button id="numberToggle" class="active" type="button">番号：ON</button>
-<button id="flipH" type="button">左右反転</button>
-<button id="flipV" type="button">上下反転</button>
-</div>
-<div class="preview-wrap"><canvas id="result"></canvas></div>
-</section>
-<section class="panel">
-<h2>3. NicoRate対応色と使用数</h2>
-<p class="note">Shirobea公開データのNicoRate RGB情報173色をCIEDE2000で比較します。近似度％は色差を換算した参考値です。ビーズ色は一覧から手動変更できます。</p><div id="palette" class="note">変換すると近似するビーズNoと色名が表示されます。</div>
-</section>
+<section class="panel"><h2>5. 色一覧・NicoRateカラー</h2><p class="muted">「番号」は図案内の管理番号、「ビーズNo.」はNicoRateの色番号です。色一覧の色をクリックすると編集色として選択できます。右側の選択欄でビーズ色を変更できます。</p><div id="paletteList" class="palette-list"><span class="muted">画像を変換すると色一覧が表示されます。</span></div></section>
 </main>
 <script>
-const sourceInput=document.getElementById('sourceFile'), gridInput=document.getElementById('gridFile');
-const convertBtn=document.getElementById('convert'), downloadBtn=document.getElementById('download');
-const statusEl=document.getElementById('status'), canvas=document.getElementById('result'), ctx=canvas.getContext('2d',{willReadFrequently:true});
-let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,colorGroups=[],beadSelection=new Map();
-let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
-const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
-const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById('flipV');
-const zoomSelect=document.getElementById('zoomSelect');
-let previewZoom=1;
-function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=reject;im.src=u})}
-async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sourceInput.files[0]):null;gridImg=gridInput.files[0]?await loadImage(gridInput.files[0]):null;convertBtn.disabled=!(sourceImg&&gridImg);statusEl.textContent=convertBtn.disabled?'2枚の画像を選択してください。':'画像を読み込みました。図案に変換できます。';}catch(e){statusEl.textContent='画像を読み込めませんでした。PNG/JPEG画像を確認してください。'}}
-sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
-function imageData(im){const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(im,0,0);return {data:x.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height}}
-function lineScores(d,axis){const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w,s=new Float32Array(n);for(let p=0;p<n;p++){let dark=0;for(let q=0;q<other;q++){const i=axis==='x'?(q*d.w+p)*4:(p*d.w+q)*4;const r=d.data[i],g=d.data[i+1],b=d.data[i+2];if(r<75&&g<75&&b<75)dark++}s[p]=dark/other}return s}
-function findLines(scores){let peaks=[];for(let i=0;i<scores.length;i++)if(scores[i]>.48)peaks.push(i);let groups=[];for(const p of peaks){if(!groups.length||p>groups[groups.length-1].end+1)groups.push({start:p,end:p,sum:p,n:1});else{let z=groups[groups.length-1];z.end=p;z.sum+=p;z.n++}}return groups.filter(g=>g.n<=4).map(g=>Math.round(g.sum/g.n))}
-function detectAxis(scores){
- let best=null;
- for(let pitch=8;pitch<=20;pitch+=.1){
-  for(let phase=0;phase<pitch;phase+=.5){
-   let pos=[];for(let x=phase;x<scores.length;x+=pitch)pos.push(Math.round(x));
-   if(pos.length<4)continue;
-   let mean=pos.reduce((v,x)=>v+(scores[x]||0),0)/pos.length;
-   if(!best||mean>best.mean)best={mean,pitch,phase,pos};
-  }
- }
- if(!best||best.mean<.35)throw Error('格子線を検出できません。線を黒く、均等にしてください。');
- // Refine each predicted line to the darkest nearby pixel.
- return best.pos.map(x=>{let lo=Math.max(0,x-2),hi=Math.min(scores.length-1,x+2),b=x;for(let j=lo;j<=hi;j++)if(scores[j]>scores[b])b=j;return b})
-}
-function detectGrid(d){
- let xs=detectAxis(lineScores(d,'x')),ys=detectAxis(lineScores(d,'y'));
- if(xs.length<3||ys.length<3)throw Error('格子線を十分に検出できません。');
- return {xs,ys,cols:xs.length-1,rows:ys.length-1}
-}
-function sampleAverage(d,x,y,rx,ry){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,Math.floor(y-ry));yy<=Math.min(d.h-1,Math.ceil(y+ry));yy++)for(let xx=Math.max(0,Math.floor(x-rx));xx<=Math.min(d.w-1,Math.ceil(x+rx));xx++){let i=(yy*d.w+xx)*4;rr+=d.data[i];gg+=d.data[i+1];bb+=d.data[i+2];n++}return [Math.round(rr/n),Math.round(gg/n),Math.round(bb/n)]}
-function renderPattern(){
- if(!lastColors)return;
- const rows=lastColors.length,cols=lastColors[0].length,cell=24;
- canvas.width=cols*cell;canvas.height=rows*cell;ctx.imageSmoothingEnabled=false;
- canvas.style.width=(canvas.width*previewZoom)+'px';
- canvas.style.height=(canvas.height*previewZoom)+'px';
- for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-   const sx=flipHorizontal?cols-1-x:x,sy=flipVertical?rows-1-y:y;
-   const color=lastColors[sy][sx],number=lastNumbers[sy][sx];
-   ctx.fillStyle=`rgb(${color.join(',')})`;ctx.fillRect(x*cell,y*cell,cell,cell);
-   if(showGrid){ctx.strokeStyle='#222';ctx.lineWidth=1;ctx.strokeRect(x*cell+.5,y*cell+.5,cell,cell)}
-   if(showNumbers){
-     const luminance=.299*color[0]+.587*color[1]+.114*color[2];
-     ctx.fillStyle=luminance>150?'#111':'#fff';
-     ctx.font='bold 13px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-     ctx.fillText(String(number),x*cell+cell/2,y*cell+cell/2);
-   }
- }
-}
-zoomSelect.addEventListener('change',()=>{previewZoom=Number(zoomSelect.value)||1;renderPattern()});
-gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textContent=`マス目：${showGrid?'ON':'OFF'}`;gridToggle.classList.toggle('active',showGrid);renderPattern()});
-numberToggle.addEventListener('click',()=>{showNumbers=!showNumbers;numberToggle.textContent=`番号：${showNumbers?'ON':'OFF'}`;numberToggle.classList.toggle('active',showNumbers);renderPattern()});
-flipHBtn.addEventListener('click',()=>{flipHorizontal=!flipHorizontal;flipHBtn.classList.toggle('active',flipHorizontal);renderPattern()});
-flipVBtn.addEventListener('click',()=>{flipVertical=!flipVertical;flipVBtn.classList.toggle('active',flipVertical);renderPattern()});
-
-// Shirobea公開ソースに登録されているNicoRate RGBデータ（173色）。
-// RGB値と名称は同ソースの登録内容を保持し、未登録色は推測で補完しない。
 const nicoRatePalette=[{"number":"001","name":"ホワイト","rgb":[255,255,255]},{"number":"002","name":"バター","rgb":[241,230,178]},{"number":"003","name":"イエロー","rgb":[255,215,0]},{"number":"004","name":"オレンジ","rgb":[255,130,0]},{"number":"005","name":"レッド","rgb":[239,51,64]},{"number":"006","name":"ピンク","rgb":[223,122,153]},{"number":"007","name":"パープル","rgb":[78,0,142]},{"number":"008","name":"ダークブルー","rgb":[0,35,156]},{"number":"009","name":"ブルー","rgb":[0,156,222]},{"number":"010","name":"グリーン","rgb":[0,150,94]},{"number":"011","name":"ペパーミント","rgb":[113,219,212]},{"number":"012","name":"ダークブラウン","rgb":[92,61,49]},{"number":"013","name":"グレー","rgb":[167,168,170]},{"number":"014","name":"ブラック","rgb":[0,0,0]},{"number":"016","name":"ブラウン","rgb":[153,85,43]},{"number":"017","name":"コーヒーブラウン","rgb":[152,106,76]},{"number":"018","name":"ネールピンク","rgb":[236,195,178]},{"number":"019","name":"ライトブラウン","rgb":[198,169,146]},{"number":"020","name":"マゼンタ","rgb":[239,75,129]},{"number":"025","name":"ヒヤシンス","rgb":[72,159,223]},{"number":"026","name":"ミントグリーン","rgb":[128,224,167]},{"number":"027","name":"ラベンダー","rgb":[191,155,222]},{"number":"028","name":"レモンイエロー","rgb":[242,240,161]},{"number":"029","name":"チーズ","rgb":[255,181,0]},{"number":"030","name":"ペールパステルブルー","rgb":[185,217,235]},{"number":"031","name":"コーラルレッド","rgb":[255,109,106]},{"number":"032","name":"ローズパープル","rgb":[191,77,165]},{"number":"033","name":"ライムグリーン","rgb":[122,204,0]},{"number":"034","name":"セルリアンブルー","rgb":[0,169,224]},{"number":"035","name":"パステルダークベージュ","rgb":[255,157,162]},{"number":"036","name":"ラピスラズリ","rgb":[131,141,200]},{"number":"038","name":"さくらいろ","rgb":[244,166,215]},{"number":"039","name":"アップルグリーン","rgb":[121,190,112]},{"number":"040","name":"ダークローズ","rgb":[215,67,136]},{"number":"041","name":"ラズベリー","rgb":[172,20,90]},{"number":"042","name":"コバルトブルー","rgb":[8,87,195]},{"number":"043","name":"キャラメル","rgb":[244,175,35]},{"number":"044","name":"パロットグリーン","rgb":[0,133,120]},{"number":"045","name":"カラスブラック","rgb":[83,86,90]},{"number":"046","name":"マリンブルー","rgb":[137,171,227]},{"number":"047","name":"マルーンブラウン","rgb":[124,37,41]},{"number":"048","name":"キウイ","rgb":[214,232,101]},{"number":"049","name":"ベージュ","rgb":[241,202,173]},{"number":"050","name":"ローシェンナ","rgb":[220,134,51]},{"number":"070","name":"ダークブラック","rgb":[33,39,33]},{"number":"071","name":"サファイアブルー","rgb":[0,87,183]},{"number":"072","name":"べにひいろ","rgb":[255,88,93]},{"number":"073","name":"ザクロ","rgb":[238,39,55]},{"number":"074","name":"ハナカイドウ","rgb":[252,155,179]},{"number":"075","name":"みずいろ","rgb":[164,219,232]},{"number":"076","name":"アイスミントグリーン","rgb":[185,220,210]},{"number":"077","name":"アイボリー","rgb":[248,245,227]},{"number":"078","name":"ナイルグリーン","rgb":[91,197,0]},{"number":"079","name":"ゴールデンイエロー","rgb":[241,196,0]},{"number":"080","name":"ネイビーブルー","rgb":[3,37,126]},{"number":"081","name":"ペールベージュ","rgb":[255,226,198]},{"number":"082","name":"セレストブルー","rgb":[98,181,229]},{"number":"083","name":"ダークグレー","rgb":[136,139,141]},{"number":"084","name":"ダークグリーン","rgb":[0,73,30]},{"number":"085","name":"はだいろ","rgb":[252,200,155]},{"number":"086","name":"ペールレッド","rgb":[233,205,208]},{"number":"087","name":"ペールグレー","rgb":[208,208,206]},{"number":"088","name":"ペールホワイト","rgb":[221,218,232]},{"number":"089","name":"ペールパープル","rgb":[197,180,227]},{"number":"090","name":"クロッカス","rgb":[198,161,207]},{"number":"091","name":"あおむらさきいろ","rgb":[33,21,81]},{"number":"092","name":"ダークレッド","rgb":[193,0,22]},{"number":"093","name":"カーマイン","rgb":[246,117,153]},{"number":"094","name":"バラ","rgb":[218,24,132]},{"number":"095","name":"ピーチ","rgb":[242,119,198]},{"number":"096","name":"マリーゴールド","rgb":[255,143,28]},{"number":"097","name":"ペールオレンジ","rgb":[255,174,98]},{"number":"098","name":"ジンジャーイエロー","rgb":[222,184,59]},{"number":"099","name":"オリーブ","rgb":[83,84,53]},{"number":"100","name":"ティファニーブルー","rgb":[100,204,201]},{"number":"101","name":"イエローオーカー","rgb":[180,126,0]},{"number":"102","name":"ダークベージュ","rgb":[212,173,103]},{"number":"103","name":"ライトベージュ","rgb":[247,206,215]},{"number":"104","name":"ワスレナグサ","rgb":[165,176,227]},{"number":"105","name":"しょうぶいろ","rgb":[193,167,226]},{"number":"106","name":"しこんいろ","rgb":[205,63,173]},{"number":"107","name":"パンジー","rgb":[128,39,108]},{"number":"108","name":"バイオレット","rgb":[40,0,113]},{"number":"109","name":"イエローベージュ","rgb":[253,208,134]},{"number":"110","name":"フラミンゴ","rgb":[255,160,106]},{"number":"111","name":"スターバックス","rgb":[29,105,96]},{"number":"112","name":"カーネーション","rgb":[249,159,201]},{"number":"113","name":"シアン","rgb":[0,166,200]},{"number":"114","name":"キャメルブラウン","rgb":[191,153,114]},{"number":"115","name":"ココナッツブラウン","rgb":[184,97,37]},{"number":"117","name":"ピーグリーン","rgb":[167,213,0]},{"number":"118","name":"ライトカーキ","rgb":[223,209,167]},{"number":"119","name":"アイスグリーン","rgb":[212,235,142]},{"number":"120","name":"ダークネイビーブルー","rgb":[34,50,110]},{"number":"121","name":"コンクリートグレー","rgb":[187,188,188]},{"number":"122","name":"ダークフォレストグリーン","rgb":[32,92,64]},{"number":"123","name":"マホガニー","rgb":[170,128,102]},{"number":"124","name":"ワインレッド","rgb":[162,0,103]},{"number":"125","name":"パープルロータス","rgb":[152,115,172]},{"number":"126","name":"ライトラベンダー","rgb":[200,216,235]},{"number":"127","name":"おうどいろ","rgb":[222,188,139]},{"number":"128","name":"ゼニスブルー","rgb":[159,174,229]},{"number":"129","name":"チョコレートブラウン","rgb":[98,52,18]},{"number":"130","name":"レイクブルー","rgb":[84,206,236]},{"number":"131","name":"サクラベージュ","rgb":[245,202,191]},{"number":"132","name":"オパールグリーン","rgb":[0,176,185]},{"number":"133","name":"ライトグリーン","rgb":[199,233,149]},{"number":"134","name":"メイプルレッド","rgb":[255,88,105]},{"number":"135","name":"しゅいろ","rgb":[255,106,57]},{"number":"136","name":"アイスミントブルー","rgb":[221,229,237]},{"number":"137","name":"チョコブラウン","rgb":[94,75,60]},{"number":"138","name":"コルク","rgb":[211,187,168]},{"number":"139","name":"ピンクベージュ","rgb":[225,187,180]},{"number":"140","name":"コーラル","rgb":[236,186,168]},{"number":"141","name":"オリーブグリーン","rgb":[128,140,36]},{"number":"142","name":"ベビーブルー","rgb":[177,201,232]},{"number":"143","name":"レグホーン","rgb":[214,210,196]},{"number":"144","name":"オイスターホワイト","rgb":[215,210,203]},{"number":"145","name":"スカイグレー","rgb":[177,179,179]},{"number":"146","name":"サンドホワイト","rgb":[219,200,182]},{"number":"147","name":"スプリンググリーン","rgb":[227,233,53]},{"number":"148","name":"チャイニーズレッド","rgb":[224,78,57]},{"number":"149","name":"ジェイブルー","rgb":[0,75,135]},{"number":"150","name":"ネオンイエロー","rgb":[247,234,72]},{"number":"153","name":"ライラック","rgb":[201,177,208]},{"number":"154","name":"サーモンピンク","rgb":[255,128,139]},{"number":"155","name":"グレープ","rgb":[177,78,181]},{"number":"156","name":"スカイブルー","rgb":[113,197,232]},{"number":"158","name":"ロイヤルパープル","rgb":[135,24,157]},{"number":"159","name":"タントンシー","rgb":[202,188,156]},{"number":"160","name":"カフェオレブラウン","rgb":[197,139,104]},{"number":"161","name":"ダークラベンダー","rgb":[162,120,156]},{"number":"162","name":"ミルクティーブラウン","rgb":[165,136,119]},{"number":"163","name":"アッシュグレー","rgb":[117,120,123]},{"number":"164","name":"ヘーゼルブラウン","rgb":[171,152,157]},{"number":"165","name":"シナモンブラウン","rgb":[214,128,107]},{"number":"166","name":"エバーグリーン","rgb":[80,109,133]},{"number":"167","name":"サンドグレー","rgb":[197,185,172]},{"number":"168","name":"フォググレー","rgb":[190,198,196]},{"number":"169","name":"パーチメント","rgb":[166,159,136]},{"number":"170","name":"ライトキャラメル","rgb":[171,146,120]},{"number":"171","name":"サンドブラウン","rgb":[193,178,162]},{"number":"172","name":"アイビーグリーン","rgb":[146,172,160]},{"number":"173","name":"チャコールグレー","rgb":[76,54,58]},{"number":"174","name":"メロングリーン","rgb":[0,179,136]},{"number":"175","name":"アイスミントライム","rgb":[181,227,216]},{"number":"191","name":"カッパーレッド","rgb":[186,12,47]},{"number":"192","name":"アルパイングリーン","rgb":[91,92,74]},{"number":"193","name":"ビリジアン","rgb":[0,111,98]},{"number":"194","name":"ピーコックグリーン","rgb":[39,153,137]},{"number":"195","name":"レッドゴールド","rgb":[237,155,51]},{"number":"196","name":"ミッドナイトブルー","rgb":[0,51,73]},{"number":"197","name":"ダークスカイブルー","rgb":[0,125,186]},{"number":"198","name":"ブルーパープル","rgb":[68,73,156]},{"number":"199","name":"キャラメルブラウン","rgb":[164,90,42]},{"number":"200","name":"チャコールブラック","rgb":[49,38,29]},{"number":"201","name":"ひそくいろ","rgb":[164,188,194]},{"number":"202","name":"ターコイズブルー","rgb":[0,133,155]},{"number":"234","name":"ネイビー","rgb":[77,73,190]},{"number":"235","name":"マルベリーパープル","rgb":[165,132,150]},{"number":"236","name":"アイアングレー","rgb":[162,172,171]},{"number":"237","name":"フクシアパープル","rgb":[207,135,157]},{"number":"238","name":"ローズグレー","rgb":[202,167,181]},{"number":"239","name":"ナイルブルー","rgb":[89,190,201]},{"number":"240","name":"フォレストグリーン","rgb":[104,152,129]},{"number":"241","name":"ベビーピンク","rgb":[222,190,210]},{"number":"242","name":"サンフラワー","rgb":[255,200,69]},{"number":"243","name":"ダークピンク","rgb":[205,84,91]},{"number":"244","name":"ライトパープル","rgb":[111,121,189]},{"number":"245","name":"シェルピンク","rgb":[232,146,124]},{"number":"246","name":"サーモン","rgb":[219,123,81]},{"number":"247","name":"ライトカフェオレ","rgb":[173,124,89]},{"number":"248","name":"アンティックゴールド","rgb":[137,122,39]}];
-// sRGB -> CIELAB (D65)
-function rgbToLab(rgb){
- const lin=v=>{v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4)};
- const [r,g,b]=rgb.map(lin);
- const x=(r*0.4124564+g*0.3575761+b*0.1804375)/0.95047;
- const y=(r*0.2126729+g*0.7151522+b*0.0721750);
- const z=(r*0.0193339+g*0.1191920+b*0.9503041)/1.08883;
- const f=t=>t>0.008856451679?Math.cbrt(t):(7.787037037*t+16/116);
- return [116*f(y)-16,500*(f(x)-f(y)),200*(f(y)-f(z))];
-}
-// CIEDE2000 (kL=kC=kH=1)
-function deltaE2000(lab1,lab2){
- const rad=Math.PI/180,[L1,a1,b1]=lab1,[L2,a2,b2]=lab2;
- const C1=Math.hypot(a1,b1),C2=Math.hypot(a2,b2),Cb=(C1+C2)/2;
- const G=.5*(1-Math.sqrt(Math.pow(Cb,7)/(Math.pow(Cb,7)+Math.pow(25,7))));
- const a1p=(1+G)*a1,a2p=(1+G)*a2;
- const C1p=Math.hypot(a1p,b1),C2p=Math.hypot(a2p,b2);
- const hue=(a,b)=>{let h=Math.atan2(b,a)/rad;return h<0?h+360:h};
- const h1=hue(a1p,b1),h2=hue(a2p,b2);
- const dL=L2-L1,dC=C2p-C1p;
- let dh=0;
- if(C1p*C2p!==0){
-  if(Math.abs(h2-h1)<=180)dh=h2-h1;
-  else if(h2-h1>180)dh=h2-h1-360;
-  else dh=h2-h1+360;
- }
- const dH=2*Math.sqrt(C1p*C2p)*Math.sin(dh*rad/2);
- const Lb=(L1+L2)/2,Cbp=(C1p+C2p)/2;
- let hb;
- if(C1p*C2p===0)hb=h1+h2;
- else if(Math.abs(h1-h2)<=180)hb=(h1+h2)/2;
- else if(h1+h2<360)hb=(h1+h2+360)/2;
- else hb=(h1+h2-360)/2;
- const T=1-.17*Math.cos((hb-30)*rad)+.24*Math.cos(2*hb*rad)+.32*Math.cos((3*hb+6)*rad)-.20*Math.cos((4*hb-63)*rad);
- const dTheta=30*Math.exp(-Math.pow((hb-275)/25,2));
- const RC=2*Math.sqrt(Math.pow(Cbp,7)/(Math.pow(Cbp,7)+Math.pow(25,7)));
- const SL=1+.015*Math.pow(Lb-50,2)/Math.sqrt(20+Math.pow(Lb-50,2));
- const SC=1+.045*Cbp,SH=1+.015*Cbp*T,RT=-Math.sin(2*dTheta*rad)*RC;
- const x=dL/SL,y=dC/SC,z=dH/SH;
- return Math.sqrt(x*x+y*y+z*z+RT*y*z);
-}
-function similarityPercent(deltaE){
- // アプリ独自の参考換算：ΔE2000=0で100%、20以上で0%。
- return Math.max(0,Math.min(100,100*(1-deltaE/20)));
-}
-function findClosestNicoRate(rgb){
- const lab=rgbToLab(rgb);
- return nicoRatePalette.map(bead=>({...bead,deltaE:deltaE2000(lab,rgbToLab(bead.rgb))}))
-  .sort((a,b)=>a.deltaE-b.deltaE);
-}
-
-convertBtn.addEventListener('click',()=>{
- try{
- const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
- // Images represent the same full canvas; map grid-image coordinates proportionally to the source.
- const rawColors=[];
- for(let y=0;y<grid.rows;y++){let row=[];for(let x=0;x<grid.cols;x++){
- const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
- const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
- row.push(sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8)));
- }rawColors.push(row)}
- // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
- // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
- const tolerance=6,clusters=[];
- const uniqueCounts=new Map();
- rawColors.forEach(row=>row.forEach(rgb=>{
-   const key=rgb.join(',');
-   uniqueCounts.set(key,(uniqueCounts.get(key)||0)+1);
- }));
- const uniqueColors=[...uniqueCounts.entries()].map(([key,count])=>({rgb:key.split(',').map(Number),count}));
- // 出現数の多い色から代表色を作り、近い色をそのグループへ加える。
- uniqueColors.sort((a,b)=>b.count-a.count);
- uniqueColors.forEach(item=>{
-   let best=-1,bestDist=Infinity;
-   for(let i=0;i<clusters.length;i++){
-     const c=clusters[i],dr=item.rgb[0]-c.rgb[0],dg=item.rgb[1]-c.rgb[1],db=item.rgb[2]-c.rgb[2];
-     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
-     if(dist<=tolerance&&dist<bestDist){best=i;bestDist=dist}
-   }
-   if(best<0){
-     clusters.push({sum:item.rgb.map(v=>v*item.count),count:item.count,rgb:[...item.rgb]});
-   }else{
-     const c=clusters[best];
-     c.sum=c.sum.map((v,i)=>v+item.rgb[i]*item.count);
-     c.count+=item.count;
-     c.rgb=c.sum.map(v=>Math.round(v/c.count));
-   }
- });
- // 最終的に確定した代表色へ全セルを再割り当てする。
- const colors=rawColors.map(row=>row.map(rgb=>{
-   let best=0,bestDist=Infinity;
-   clusters.forEach((c,i)=>{
-     const dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
-     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
-     if(dist<bestDist){best=i;bestDist=dist}
-   });
-   return [...clusters[best].rgb];
- }));
- // 抽出した図案色ごとにCIEDE2000で候補を検索する。
- sourceColors=colors.map(row=>row.map(rgb=>[...rgb]));
- const grouped=new Map();
- colors.forEach((row,y)=>row.forEach((rgb,x)=>{
-   const key=rgb.join(',');
-   if(!grouped.has(key))grouped.set(key,{key,rgb:[...rgb],count:0});
-   grouped.get(key).count++;
- }));
- colorGroups=[...grouped.values()].map((g,i)=>({...g,managerNo:i+1,candidates:findClosestNicoRate(g.rgb)}));
- beadSelection=new Map(colorGroups.map(g=>[g.key,g.candidates[0].number]));
- updatePatternFromSelections();
- renderPattern();
- document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
- document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
- document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
- renderPalette();
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
- }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
-});
-function updatePatternFromSelections(){
- const groupByKey=new Map(colorGroups.map(g=>[g.key,g]));
- lastColors=sourceColors.map(row=>row.map(rgb=>{
-   const g=groupByKey.get(rgb.join(','));
-   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(g.key))||g.candidates[0];
-   return [...bead.rgb];
- }));
- lastNumbers=sourceColors.map(row=>row.map(rgb=>groupByKey.get(rgb.join(',')).managerNo));
-}
-function renderPalette(){
- const pal=document.getElementById('palette');pal.innerHTML='';
- colorGroups.forEach(g=>{
-   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(g.key))||g.candidates[0];
-   const de=deltaE2000(rgbToLab(g.rgb),rgbToLab(bead.rgb));
-   const percent=similarityPercent(de);
-   const el=document.createElement('div');el.className='swatch';
-   const swatch=document.createElement('span');swatch.className='color';
-   swatch.style.background=`rgb(${bead.rgb.join(',')})`;
-   const info=document.createElement('div');info.className='swatch-info';
-
-   const line=(text,cls='')=>{
-     const node=document.createElement('div');
-     if(cls)node.className=cls;
-     node.textContent=text;
-     info.append(node);
-     return node;
-   };
-   line(`番号 ${g.managerNo}｜${g.count}`);
-   line(`${bead.number} ${bead.name}`);
-   line('RGB');
-   line(`(${g.rgb.join(', ')})`);
-   line(`近似値：${percent.toFixed(1)}%`,'match');
-   line(`ΔE2000：${de.toFixed(2)}`,'muted');
-
-   const select=document.createElement('select');
-   select.setAttribute('aria-label',`番号${g.managerNo}のビーズ色`);
-   // 候補はCIEDE2000の色差が小さい順（近似度が高い順）に並んでいる。
-   g.candidates.forEach(candidate=>{
-     const option=document.createElement('option');
-     option.value=candidate.number;
-     option.textContent=`${candidate.number} ${candidate.name}（近似度 ${similarityPercent(candidate.deltaE).toFixed(1)}%）`;
-     select.append(option);
-   });
-   select.value=bead.number;
-   select.addEventListener('change',()=>{
-     beadSelection.set(g.key,select.value);
-     updatePatternFromSelections();renderPattern();renderPalette();
-     document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
-   });
-   info.append(select);
-   el.append(swatch,info);pal.append(el);
- });
-}
-downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=canvas.toDataURL('image/png');a.click()});
-</script>
-</body></html>
+function rgbToLab(rgb){const lin=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4)};const [r,g,b]=rgb.map(lin);const x=(r*.4124564+g*.3575761+b*.1804375)/.95047,y=r*.2126729+g*.7151522+b*.072175,z=(r*.0193339+g*.1191920+b*.9503041)/1.08883;const f=t=>t>.008856451679?Math.cbrt(t):(7.787037037*t+16/116);return [116*f(y)-16,500*(f(x)-f(y)),200*(f(y)-f(z))]}
+function deltaE2000(lab1,lab2){const rad=Math.PI/180,[L1,a1,b1]=lab1,[L2,a2,b2]=lab2,C1=Math.hypot(a1,b1),C2=Math.hypot(a2,b2),Cb=(C1+C2)/2,G=.5*(1-Math.sqrt(Math.pow(Cb,7)/(Math.pow(Cb,7)+Math.pow(25,7)))),a1p=(1+G)*a1,a2p=(1+G)*a2,C1p=Math.hypot(a1p,b1),C2p=Math.hypot(a2p,b2),hue=(a,b)=>{let h=Math.atan2(b,a)/rad;return h<0?h+360:h},h1=hue(a1p,b1),h2=hue(a2p,b2),dL=L2-L1,dC=C2p-C1p;let dh=0;if(C1p*C2p!==0){if(Math.abs(h2-h1)<=180)dh=h2-h1;else if(h2-h1>180)dh=h2-h1-360;else dh=h2-h1+360}const dH=2*Math.sqrt(C1p*C2p)*Math.sin(dh*rad/2),Lb=(L1+L2)/2,Cbp=(C1p+C2p)/2;let hb;if(C1p*C2p===0)hb=h1+h2;else if(Math.abs(h1-h2)<=180)hb=(h1+h2)/2;else if(h1+h2<360)hb=(h1+h2+360)/2;else hb=(h1+h2-360)/2;const T=1-.17*Math.cos((hb-30)*rad)+.24*Math.cos(2*hb*rad)+.32*Math.cos((3*hb+6)*rad)-.2*Math.cos((4*hb-63)*rad),dTheta=30*Math.exp(-Math.pow((hb-275)/25,2)),RC=2*Math.sqrt(Math.pow(Cbp,7)/(Math.pow(Cbp,7)+Math.pow(25,7))),SL=1+.015*Math.pow(Lb-50,2)/Math.sqrt(20+Math.pow(Lb-50,2)),SC=1+.045*Cbp,SH=1+.015*Cbp*T,RT=-Math.sin(2*dTheta*rad)*RC,x=dL/SL,y=dC/SC,z=dH/SH;return Math.sqrt(x*x+y*y+z*z+RT*y*z)}
+const closest=rgb=>nicoRatePalette.map(b=>({...b,de:deltaE2000(rgbToLab(rgb),rgbToLab(b.rgb))})).sort((a,b)=>a.de-b.de);
+const $=id=>document.getElementById(id),sourceInput=$('sourceFile'),canvas=$('result'),ctx=canvas.getContext('2d',{willReadFrequently:true}),viewport=$('viewport');
+let image=null,imageDataUrl='',pattern=[],groups=[],selectedGroup=0,tool='paint',showGrid=true,showNumbers=false,zoom=1,undoStack=[],redoStack=[],dragging=false,lastPaint='',panStart=null,scrollStart=null,saveTimer=null;
+function status(t,kind=''){ $('status').textContent=t;$('status').className='status '+kind }
+function loadImage(file){return new Promise((res,rej)=>{const url=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(url);res(im)};im.onerror=rej;im.src=url})}
+sourceInput.addEventListener('change',async()=>{const f=sourceInput.files[0];if(!f)return;try{image=await loadImage(f);const r=new FileReader();r.onload=()=>{imageDataUrl=r.result;$('convert').disabled=false;status(`画像を読み込みました：${image.naturalWidth} × ${image.naturalHeight} px`,'ok')};r.readAsDataURL(f)}catch(e){status('画像を読み込めませんでした。','err')}});
+function sampleCell(im,x,y,cols,rows,mode){const sx=im.naturalWidth/cols,sy=im.naturalHeight/rows;let inset=mode==='C'?.05:mode==='B'?.18:.32;let x0=Math.floor(x*sx+sx*inset),x1=Math.max(x0+1,Math.ceil((x+1)*sx-sx*inset)),y0=Math.floor(y*sy+sy*inset),y1=Math.max(y0+1,Math.ceil((y+1)*sy-sy*inset));x0=Math.max(0,x0);y0=Math.max(0,y0);x1=Math.min(im.naturalWidth,x1);y1=Math.min(im.naturalHeight,y1);const c=document.createElement('canvas');c.width=x1-x0;c.height=y1-y0;const cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(im,x0,y0,c.width,c.height,0,0,c.width,c.height);const d=cx.getImageData(0,0,c.width,c.height).data;let r=0,g=0,b=0,n=0;const step=mode==='C'?1:Math.max(1,Math.floor(Math.min(c.width,c.height)/12));for(let yy=0;yy<c.height;yy+=step)for(let xx=0;xx<c.width;xx+=step){const i=(yy*c.width+xx)*4,a=d[i+3]/255;r+=d[i]*a+255*(1-a);g+=d[i+1]*a+255*(1-a);b+=d[i+2]*a+255*(1-a);n++}return [Math.round(r/n),Math.round(g/n),Math.round(b/n)]}
+function quantize(samples,k){const freq=new Map();for(const row of samples)for(const c of row){const key=c.join(',');freq.set(key,(freq.get(key)||0)+1)}let points=[...freq].map(([key,count])=>({rgb:key.split(',').map(Number),count}));if(points.length<=k)return points.map(p=>p.rgb);points.sort((a,b)=>b.count-a.count);let centers=[points[0].rgb];while(centers.length<k){let best=null,score=-1;for(const p of points){const d=Math.min(...centers.map(c=>Math.sqrt(c.reduce((s,v,i)=>s+(v-p.rgb[i])**2,0))));const sc=d*Math.sqrt(p.count);if(sc>score){score=sc;best=p.rgb}}centers.push(best)}for(let it=0;it<7;it++){const sums=centers.map(()=>[0,0,0,0]);for(const p of points){let bi=0,bd=Infinity;centers.forEach((c,i)=>{const d=c.reduce((s,v,j)=>s+(v-p.rgb[j])**2,0);if(d<bd){bd=d;bi=i}});for(let j=0;j<3;j++)sums[bi][j]+=p.rgb[j]*p.count;sums[bi][3]+=p.count}centers=centers.map((c,i)=>sums[i][3]?sums[i].slice(0,3).map(v=>Math.round(v/sums[i][3])):c)}return centers}
+function convert(keepManual=false,previousGroups=[]){if(!image)return;try{const cols=Math.max(4,Math.min(300,Number($('cols').value)||48)),rows=Math.max(1,Math.round(cols*image.naturalHeight/image.naturalWidth)),k=Math.max(1,Math.min(173,Number($('maxColors').value)||40)),mode=$('mode').value;let raw=Array.from({length:rows},(_,y)=>Array.from({length:cols},(_,x)=>sampleCell(image,x,y,cols,rows,mode)));if(mode==='B'){const copy=raw.map(r=>r.map(c=>[...c]));for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){let a=[0,0,0],n=0;for(let yy=Math.max(0,y-1);yy<=Math.min(rows-1,y+1);yy++)for(let xx=Math.max(0,x-1);xx<=Math.min(cols-1,x+1);xx++){a=a.map((v,i)=>v+copy[yy][xx][i]);n++}raw[y][x]=a.map(v=>Math.round(v/n))}}const centers=quantize(raw,k);const keyMap=new Map();groups=centers.map((rgb,i)=>({id:i+1,rgb,candidate:closest(rgb)[0],count:0}));pattern=raw.map(row=>row.map(rgb=>{let bi=0,bd=Infinity;centers.forEach((c,i)=>{const d=c.reduce((s,v,j)=>s+(v-rgb[j])**2,0);if(d<bd){bd=d;bi=i}});groups[bi].count++;return bi}));groups=groups.filter(g=>g.count>0);const used=new Set(pattern.flat());const remap=new Map([...used].map((old,i)=>[old,i]));groups=groups.map((g,i)=>({...g,id:i+1}));pattern=pattern.map(row=>row.map(old=>remap.get(old)));groups.forEach((g,i)=>{g.candidate=closest(g.rgb)[0];if(keepManual&&previousGroups.length){let best=null,dist=Infinity;for(const old of previousGroups){if(!old.beadNo)continue;const d=g.rgb.reduce((sum,v,j)=>sum+(v-old.rgb[j])**2,0);if(d<dist){dist=d;best=old}}if(best)g.beadNo=best.beadNo}});selectedGroup=0;undoStack=[];redoStack=[];renderAll();$('png').disabled=false;$('csv').disabled=false;$('reconvert').disabled=false;status(`変換しました：${cols}列 × ${rows}行／色数上限 ${k}色／実使用 ${groups.length}色。`,'ok');scheduleSave()}catch(e){console.error(e);status('変換に失敗しました：'+e.message,'err')}}
+$('convert').addEventListener('click',convert);$('reconvert').addEventListener('click',()=>{if(!confirm('設定を変更して再変換します。現在のマス目編集は置き換わります。続けますか？'))return;const keep=confirm('手動で変更したNicoRateカラー設定を、新しい図案に可能な範囲で引き継ぎますか？\n\nOK：引き継ぐ\nキャンセル：リセットする');const old=groups.map(g=>({...g}));convert(keep,old)});
+function bead(g){return g.beadNo?nicoRatePalette.find(b=>b.number===g.beadNo)||g.candidate:g.candidate}
+function draw(){if(!pattern.length)return;const rows=pattern.length,cols=pattern[0].length,cell=22;canvas.width=cols*cell;canvas.height=rows*cell;ctx.imageSmoothingEnabled=false;for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){const gi=pattern[y][x],g=gi==null?null:groups[gi],c=g?bead(g).rgb:[255,255,255];ctx.fillStyle=`rgb(${c.join(',')})`;ctx.fillRect(x*cell,y*cell,cell,cell);if(showGrid){ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.strokeRect(x*cell+.5,y*cell+.5,cell,cell)}if(showNumbers&&g){ctx.fillStyle=(c[0]*.299+c[1]*.587+c[2]*.114)>145?'#111':'#fff';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(g.id),x*cell+11,y*cell+11)}}canvas.style.width=(canvas.width*zoom)+'px';canvas.style.height=(canvas.height*zoom)+'px'}
+function renderPalette(){const root=$('paletteList');root.innerHTML='';const liveCounts=groups.map((g,i)=>pattern.flat().filter(v=>v===i).length);groups.forEach((g,i)=>{const b=bead(g),el=document.createElement('div');el.className='swatch'+(i===selectedGroup?' active':'');const chip=document.createElement('span');chip.className='chip';chip.style.background=`rgb(${b.rgb.join(',')})`;const info=document.createElement('div');info.innerHTML=`<b>番号 ${g.id}</b> <span class="qty">${liveCounts[i]}個</span><br>ビーズNo. ${b.number} ${b.name}`;const sel=document.createElement('select');sel.setAttribute('aria-label',`管理番号${g.id}のビーズ色`);const opts=closest(g.rgb);opts.forEach(c=>{const o=document.createElement('option');o.value=c.number;o.textContent=`${c.number} ${c.name}`;sel.append(o)});sel.value=b.number;sel.addEventListener('click',e=>e.stopPropagation());sel.addEventListener('change',()=>{pushUndo();g.beadNo=sel.value;renderAll();scheduleSave()});info.append(sel);el.append(chip,info);el.addEventListener('click',()=>{selectedGroup=i;renderPalette()});root.append(el)})}
+function renderAll(){draw();renderPalette();const rows=pattern.length,cols=rows?pattern[0].length:0;$('dimensions').textContent=rows?`マス目：${cols}列 × ${rows}行`:'マス目：未作成';$('cellCount').textContent=rows?`総マス数：${rows*cols}マス`:'総マス数：-';const totals=new Map();pattern.flat().forEach(i=>{if(i!=null){const b=bead(groups[i]);const k=b.number;totals.set(k,{b,count:(totals.get(k)?.count||0)+1})}});$('colorCount').textContent=`使用色数：${totals.size}色`;$('summary').innerHTML=totals.size?[...totals.values()].sort((a,b)=>a.b.number.localeCompare(b.b.number)).map(v=>`${v.b.number} ${v.b.name}：<b>${v.count}</b>個`).join('<br>'):'色データなし';$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length}
+function snapshot(){return JSON.stringify({pattern,groups:groups.map(g=>({...g}))})}function pushUndo(){undoStack.push(snapshot());if(undoStack.length>50)undoStack.shift();redoStack=[];renderHistoryButtons()}function renderHistoryButtons(){$('undo').disabled=!undoStack.length;$('redo').disabled=!redoStack.length}function restore(s){const d=JSON.parse(s);pattern=d.pattern;groups=d.groups;renderAll();scheduleSave()}$('undo').addEventListener('click',()=>{if(!undoStack.length)return;redoStack.push(snapshot());restore(undoStack.pop())});$('redo').addEventListener('click',()=>{if(!redoStack.length)return;undoStack.push(snapshot());restore(redoStack.pop())});
+function cellAt(e){const r=canvas.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/zoom/22),y=Math.floor((e.clientY-r.top)/zoom/22);return {x,y}}
+function paintCell(x,y){if(!pattern.length||y<0||y>=pattern.length||x<0||x>=pattern[0].length)return;const val=tool==='erase'?null:selectedGroup;if(pattern[y][x]===val)return;pattern[y][x]=val;draw()}
+function flood(x,y){const old=pattern[y]?.[x];if(old===undefined||old===null||old===selectedGroup)return;pushUndo();const stack=[[x,y]],seen=new Set();while(stack.length){const [cx,cy]=stack.pop(),key=cy+','+cx;if(seen.has(key))continue;seen.add(key);if(cy<0||cy>=pattern.length||cx<0||cx>=pattern[0].length||pattern[cy][cx]!==old)continue;pattern[cy][cx]=selectedGroup;stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1])}renderAll();scheduleSave()}
+canvas.addEventListener('pointerdown',e=>{if(!pattern.length)return;if(tool==='pan'){dragging=true;panStart={x:e.clientX,y:e.clientY};scrollStart={x:viewport.scrollLeft,y:viewport.scrollTop};canvas.setPointerCapture(e.pointerId);return}const {x,y}=cellAt(e);if(tool==='fill'){flood(x,y);return}pushUndo();dragging=true;lastPaint='';canvas.setPointerCapture(e.pointerId);paintCell(x,y);lastPaint=x+','+y});canvas.addEventListener('pointermove',e=>{if(!dragging)return;if(tool==='pan'&&panStart){viewport.scrollLeft=scrollStart.x-(e.clientX-panStart.x);viewport.scrollTop=scrollStart.y-(e.clientY-panStart.y);return}if(tool==='paint'||tool==='erase'){const {x,y}=cellAt(e),k=x+','+y;if(k!==lastPaint){paintCell(x,y);lastPaint=k}}});function finishDrag(){if(dragging&&tool!=='pan'){renderAll();scheduleSave()}dragging=false;panStart=null}canvas.addEventListener('pointerup',finishDrag);canvas.addEventListener('pointercancel',finishDrag);
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>{tool=b.dataset.tool;document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('active',x===b));viewport.style.cursor=tool==='pan'?'grab':tool==='fill'?'cell':'crosshair'}));
+$('gridToggle').addEventListener('click',()=>{showGrid=!showGrid;$('gridToggle').textContent=`境界線：${showGrid?'ON':'OFF'}`;$('gridToggle').classList.toggle('active',showGrid);draw();scheduleSave()});$('numberToggle').addEventListener('click',()=>{showNumbers=!showNumbers;$('numberToggle').textContent=`番号：${showNumbers?'ON':'OFF'}`;$('numberToggle').classList.toggle('active',showNumbers);draw();scheduleSave()});$('zoom').addEventListener('input',()=>{zoom=Number($('zoom').value)/100;$('zoomLabel').textContent=$('zoom').value+'%';draw();scheduleSave()});$('fit').addEventListener('click',()=>{if(!pattern.length)return;const z=Math.min((viewport.clientWidth-36)/canvas.width,(viewport.clientHeight-36)/canvas.height,1);zoom=Math.max(.25,Math.min(5,z));$('zoom').value=Math.round(zoom*100);$('zoomLabel').textContent=$('zoom').value+'%';draw();viewport.scrollTo(0,0);scheduleSave()});viewport.addEventListener('wheel',e=>{e.preventDefault();const old=zoom,rect=viewport.getBoundingClientRect(),px=e.clientX-rect.left+viewport.scrollLeft,py=e.clientY-rect.top+viewport.scrollTop;zoom=Math.max(.25,Math.min(5,zoom*(e.deltaY<0?1.12:.89)));$('zoom').value=Math.round(zoom*100);$('zoomLabel').textContent=$('zoom').value+'%';draw();viewport.scrollLeft=px*zoom/old-(e.clientX-rect.left);viewport.scrollTop=py*zoom/old-(e.clientY-rect.top)},{passive:false});
+function exportCanvas(){if(!pattern.length)return null;const old=zoom;const c=document.createElement('canvas'),cell=24;c.width=pattern[0].length*cell;c.height=pattern.length*cell;const x=c.getContext('2d');for(let y=0;y<pattern.length;y++)for(let xx=0;xx<pattern[0].length;xx++){const i=pattern[y][xx],g=i==null?null:groups[i],rgb=g?bead(g).rgb:[255,255,255];x.fillStyle=`rgb(${rgb.join(',')})`;x.fillRect(xx*cell,y*cell,cell,cell);if(showGrid){x.strokeStyle='#222';x.strokeRect(xx*cell+.5,y*cell+.5,cell,cell)}if(showNumbers&&g){x.fillStyle=(rgb[0]*.299+rgb[1]*.587+rgb[2]*.114)>145?'#111':'#fff';x.font='bold 12px Arial';x.textAlign='center';x.textBaseline='middle';x.fillText(String(g.id),xx*cell+12,y*cell+12)}}return c}
+$('png').addEventListener('click',()=>{const c=exportCanvas();if(!c)return;const a=document.createElement('a');a.download='NIGO-BEADS-pattern.png';a.href=c.toDataURL('image/png');a.click()});$('csv').addEventListener('click',()=>{const totals=new Map();pattern.flat().forEach(i=>{if(i!=null){const b=bead(groups[i]);totals.set(b.number,{b,count:(totals.get(b.number)?.count||0)+1})}});const lines=[['ビーズNo.','色名','数量'],...[...totals.values()].sort((a,b)=>a.b.number.localeCompare(b.b.number)).map(v=>[v.b.number,v.b.name,v.count])];const csv='\ufeff'+lines.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='NIGO-BEADS-color-list.csv';a.click();URL.revokeObjectURL(a.href)});
+function projectData(){return {app:'NIGO BEADS STUDIO',version:1,sourceImage:imageDataUrl,settings:{mode:$('mode').value,cols:$('cols').value,maxColors:$('maxColors').value},pattern,groups,showGrid,showNumbers,zoom}}
+function saveLocal(){try{localStorage.setItem('nigoBeadsStudio_v1',JSON.stringify(projectData()));$('saveState').textContent='● 保存しました';$('saveState').style.color='#bdf2c9'}catch(e){$('saveState').textContent='● 保存エラー（容量不足の可能性）';$('saveState').style.color='#ffb8b8'}}function scheduleSave(){clearTimeout(saveTimer);$('saveState').textContent='● 保存待機中';saveTimer=setTimeout(saveLocal,500)}$('saveNow').addEventListener('click',()=>{saveLocal();status('ブラウザ内に保存しました。','ok')});
+$('exportProject').addEventListener('click',()=>{if(!pattern.length){status('先に画像を変換してください。','err');return}const blob=new Blob([JSON.stringify(projectData())],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='NIGO-BEADS-project.nbs';a.click();URL.revokeObjectURL(a.href);status('プロジェクトファイルを書き出しました。','ok')});
+$('importProject').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;if(pattern.length&&!confirm('現在の作業を読み込んだプロジェクトに置き換えます。続けますか？')){e.target.value='';return}try{const d=JSON.parse(await f.text());if(d.app!=='NIGO BEADS STUDIO'||!Array.isArray(d.pattern)||!Array.isArray(d.groups))throw Error('対応していないプロジェクトファイルです');imageDataUrl=d.sourceImage||'';if(imageDataUrl){image=await loadImage(await (await fetch(imageDataUrl)).blob())}pattern=d.pattern;groups=d.groups;$('mode').value=d.settings?.mode||'A';$('cols').value=d.settings?.cols||48;$('maxColors').value=d.settings?.maxColors||40;showGrid=d.showGrid!==false;showNumbers=!!d.showNumbers;zoom=d.zoom||1;$('zoom').value=Math.round(zoom*100);$('zoomLabel').textContent=$('zoom').value+'%';$('gridToggle').textContent=`境界線：${showGrid?'ON':'OFF'}`;$('numberToggle').textContent=`番号：${showNumbers?'ON':'OFF'}`;$('png').disabled=false;$('csv').disabled=false;$('reconvert').disabled=!image;undoStack=[];redoStack=[];renderAll();saveLocal();status('プロジェクトを読み込みました。','ok')}catch(err){status('読み込みに失敗しました：'+err.message,'err')}e.target.value=''});
+try{const saved=localStorage.getItem('nigoBeadsStudio_v1');if(saved){const d=JSON.parse(saved);if(d.app==='NIGO BEADS STUDIO'&&Array.isArray(d.pattern)){pattern=d.pattern;groups=d.groups||[];imageDataUrl=d.sourceImage||'';$('mode').value=d.settings?.mode||'A';$('cols').value=d.settings?.cols||48;$('maxColors').value=d.settings?.maxColors||40;showGrid=d.showGrid!==false;showNumbers=!!d.showNumbers;zoom=d.zoom||1;$('zoom').value=Math.round(zoom*100);$('zoomLabel').textContent=$('zoom').value+'%';$('gridToggle').textContent=`境界線：${showGrid?'ON':'OFF'}`;$('numberToggle').textContent=`番号：${showNumbers?'ON':'OFF'}`;if(imageDataUrl)fetch(imageDataUrl).then(r=>r.blob()).then(loadImage).then(im=>{image=im;$('convert').disabled=false;$('reconvert').disabled=false});$('png').disabled=false;$('csv').disabled=false;renderAll();$('saveState').textContent='● 保存データを復元しました'}}}catch(e){console.warn(e)}
+</script></body></html>
