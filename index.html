@@ -92,7 +92,7 @@ function lineScores(d,axis){const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w,
 function detectAxis(scores){
  let candidates=[];
 
- for(let pitch=8;pitch<=20;pitch+=.1){
+ for(let pitch=5;pitch<=10;pitch+=.1){
   for(let phase=0;phase<pitch;phase+=.5){
    let pos=[];
    for(let x=phase;x<scores.length;x+=pitch){
