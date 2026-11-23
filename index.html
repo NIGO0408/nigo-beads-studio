@@ -88,21 +88,40 @@ async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sour
 sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
 function imageData(im){const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(im,0,0);return {data:x.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height}}
 function lineScores(d,axis){const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w,s=new Float32Array(n);for(let p=0;p<n;p++){let dark=0;for(let q=0;q<other;q++){const i=axis==='x'?(q*d.w+p)*4:(p*d.w+q)*4;const r=d.data[i],g=d.data[i+1],b=d.data[i+2];if(r<75&&g<75&&b<75)dark++}s[p]=dark/other}return s}
-function findLines(scores){let peaks=[];for(let i=0;i<scores.length;i++)if(scores[i]>.48)peaks.push(i);let groups=[];for(const p of peaks){if(!groups.length||p>groups[groups.length-1].end+1)groups.push({start:p,end:p,sum:p,n:1});else{let z=groups[groups.length-1];z.end=p;z.sum+=p;z.n++}}return groups.filter(g=>g.n<=4).map(g=>Math.round(g.sum/g.n))}
+
 function detectAxis(scores){
- let best=null;
+ let candidates=[];
+
  for(let pitch=8;pitch<=20;pitch+=.1){
   for(let phase=0;phase<pitch;phase+=.5){
-   let pos=[];for(let x=phase;x<scores.length;x+=pitch)pos.push(Math.round(x));
+   let pos=[];
+   for(let x=phase;x<scores.length;x+=pitch){
+    pos.push(Math.round(x));
+   }
    if(pos.length<4)continue;
+
    let mean=pos.reduce((v,x)=>v+(scores[x]||0),0)/pos.length;
-   if(!best||mean>best.mean)best={mean,pitch,phase,pos};
+   candidates.push({mean,pitch,phase,pos});
   }
  }
+
+ if(!candidates.length)throw Error('格子線を検出できません。');
+
+ let maxMean=Math.max(...candidates.map(c=>c.mean));
+
+ let best=candidates
+  .filter(c=>maxMean-c.mean<=.02)
+  .sort((a,b)=>b.pos.length-a.pos.length)[0];
+
  if(!best||best.mean<.35)throw Error('格子線を検出できません。線を黒く、均等にしてください。');
- // Refine each predicted line to the darkest nearby pixel.
- return best.pos.map(x=>{let lo=Math.max(0,x-2),hi=Math.min(scores.length-1,x+2),b=x;for(let j=lo;j<=hi;j++)if(scores[j]>scores[b])b=j;return b})
+
+ return best.pos.map(x=>{
+  let lo=Math.max(0,x-2),hi=Math.min(scores.length-1,x+2),b=x;
+  for(let j=lo;j<=hi;j++)if(scores[j]>scores[b])b=j;
+  return b;
+ });
 }
+
 function detectGrid(d){
  let xs=detectAxis(lineScores(d,'x')),ys=detectAxis(lineScores(d,'y'));
  if(xs.length<3||ys.length<3)throw Error('格子線を十分に検出できません。');
