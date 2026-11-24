@@ -55,7 +55,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <section class="panel">
 <h2>2. 変換結果</h2>
 <div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
-<p class="note">各マスの中央付近を元イラストからサンプリングしています。番号は色ごとの管理番号です。</p>
+<p class="note">各マス中央の3×3画素から最頻色を取得し、JPEGノイズによる微小な色差を統合します。番号は色ごとの管理番号です。</p>
 <div class="view-controls">
 <label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
 <select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
@@ -127,7 +127,19 @@ function detectGrid(d){
  if(xs.length<3||ys.length<3)throw Error('格子線を十分に検出できません。');
  return {xs,ys,cols:xs.length-1,rows:ys.length-1}
 }
-function sampleAverage(d,x,y,rx,ry){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,Math.floor(y-ry));yy<=Math.min(d.h-1,Math.ceil(y+ry));yy++)for(let xx=Math.max(0,Math.floor(x-rx));xx<=Math.min(d.w-1,Math.ceil(x+rx));xx++){let i=(yy*d.w+xx)*4;rr+=d.data[i];gg+=d.data[i+1];bb+=d.data[i+2];n++}return [Math.round(rr/n),Math.round(gg/n),Math.round(bb/n)]}
+function sampleAverage(d,x,y,rx,ry){
+ // ピクセルアートではセル中央の画素を優先し、隣接色や白背景を混ぜない。
+ // JPEG由来の微小ノイズ対策として中央付近の小領域から最頻色を採用する。
+ const cx=Math.round(x),cy=Math.round(y),sx=Math.max(0,Math.floor(cx-1)),ex=Math.min(d.w-1,Math.ceil(cx+1)),sy=Math.max(0,Math.floor(cy-1)),ey=Math.min(d.h-1,Math.ceil(cy+1));
+ const counts=new Map();
+ for(let yy=sy;yy<=ey;yy++)for(let xx=sx;xx<=ex;xx++){
+  const i=(yy*d.w+xx)*4,key=`${d.data[i]},${d.data[i+1]},${d.data[i+2]}`;
+  counts.set(key,(counts.get(key)||0)+1);
+ }
+ let bestKey='',bestCount=-1;
+ for(const [key,count] of counts){if(count>bestCount){bestKey=key;bestCount=count}}
+ return bestKey.split(',').map(Number);
+}
 function renderPattern(){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
@@ -219,7 +231,7 @@ convertBtn.addEventListener('click',()=>{
  }rawColors.push(row)}
  // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
  // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
- const tolerance=6,clusters=[];
+ const tolerance=18,clusters=[];
  const uniqueCounts=new Map();
  rawColors.forEach(row=>row.forEach(rgb=>{
    const key=rgb.join(',');
@@ -270,7 +282,7 @@ convertBtn.addEventListener('click',()=>{
  document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  renderPalette();
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下（JPEGノイズを考慮）\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
