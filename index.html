@@ -55,7 +55,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <section class="panel">
 <h2>2. 変換結果</h2>
 <div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
-<p class="note">各マス中央の3×3画素から最頻色を取得し、JPEGノイズによる微小な色差を統合します。番号は色ごとの管理番号です。</p>
+<p class="note">各マス中央の5×5画素から最頻色を取得し、同じNicoRateビーズNo.に一致した色を一つにまとめます。1～2マスだけの孤立色も、近い色差の場合に限って統合します。番号は使用色ごとの管理番号です。</p>
 <div class="view-controls">
 <label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
 <select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
@@ -130,7 +130,7 @@ function detectGrid(d){
 function sampleAverage(d,x,y,rx,ry){
  // ピクセルアートではセル中央の画素を優先し、隣接色や白背景を混ぜない。
  // JPEG由来の微小ノイズ対策として中央付近の小領域から最頻色を採用する。
- const cx=Math.round(x),cy=Math.round(y),sx=Math.max(0,Math.floor(cx-1)),ex=Math.min(d.w-1,Math.ceil(cx+1)),sy=Math.max(0,Math.floor(cy-1)),ey=Math.min(d.h-1,Math.ceil(cy+1));
+ const cx=Math.round(x),cy=Math.round(y),sx=Math.max(0,Math.floor(cx-2)),ex=Math.min(d.w-1,Math.ceil(cx+2)),sy=Math.max(0,Math.floor(cy-2)),ey=Math.min(d.h-1,Math.ceil(cy+2));
  const counts=new Map();
  for(let yy=sy;yy<=ey;yy++)for(let xx=sx;xx<=ex;xx++){
   const i=(yy*d.w+xx)*4,key=`${d.data[i]},${d.data[i+1]},${d.data[i+2]}`;
@@ -222,77 +222,77 @@ function findClosestNicoRate(rgb){
 convertBtn.addEventListener('click',()=>{
  try{
  const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
- // Images represent the same full canvas; map grid-image coordinates proportionally to the source.
+ // 格子ごとの中央3×3画素の最頻色を取得する。
  const rawColors=[];
- for(let y=0;y<grid.rows;y++){let row=[];for(let x=0;x<grid.cols;x++){
- const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
- const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
- row.push(sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8)));
- }rawColors.push(row)}
- // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
- // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
- const tolerance=18,clusters=[];
- const uniqueCounts=new Map();
- rawColors.forEach(row=>row.forEach(rgb=>{
-   const key=rgb.join(',');
-   uniqueCounts.set(key,(uniqueCounts.get(key)||0)+1);
- }));
- const uniqueColors=[...uniqueCounts.entries()].map(([key,count])=>({rgb:key.split(',').map(Number),count}));
- // 出現数の多い色から代表色を作り、近い色をそのグループへ加える。
- uniqueColors.sort((a,b)=>b.count-a.count);
- uniqueColors.forEach(item=>{
-   let best=-1,bestDist=Infinity;
-   for(let i=0;i<clusters.length;i++){
-     const c=clusters[i],dr=item.rgb[0]-c.rgb[0],dg=item.rgb[1]-c.rgb[1],db=item.rgb[2]-c.rgb[2];
-     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
-     if(dist<=tolerance&&dist<bestDist){best=i;bestDist=dist}
+ for(let y=0;y<grid.rows;y++){
+   const row=[];
+   for(let x=0;x<grid.cols;x++){
+     const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
+     const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
+     row.push(sampleAverage(sd,sx,sy,1,1));
    }
-   if(best<0){
-     clusters.push({sum:item.rgb.map(v=>v*item.count),count:item.count,rgb:[...item.rgb]});
-   }else{
-     const c=clusters[best];
-     c.sum=c.sum.map((v,i)=>v+item.rgb[i]*item.count);
-     c.count+=item.count;
-     c.rgb=c.sum.map(v=>Math.round(v/c.count));
-   }
- });
- // 最終的に確定した代表色へ全セルを再割り当てする。
- const colors=rawColors.map(row=>row.map(rgb=>{
-   let best=0,bestDist=Infinity;
-   clusters.forEach((c,i)=>{
-     const dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
-     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
-     if(dist<bestDist){best=i;bestDist=dist}
+   rawColors.push(row);
+ }
+ // 重要：抽出RGBを先に別々の管理色へ分けず、最初にNicoRate色へ照合する。
+ // 同じビーズNo.に一致したRGBは一つのグループへ統合し、同じ色のカード重複を防ぐ。
+ const matchCache=new Map(),grouped=new Map(),cellKeys=[];
+ rawColors.forEach((row,y)=>{
+   const keyRow=[];
+   row.forEach(rgb=>{
+     const rgbKey=rgb.join(',');
+     let match=matchCache.get(rgbKey);
+     if(!match){match=findClosestNicoRate(rgb)[0];matchCache.set(rgbKey,match);}
+     const key=match.number;
+     if(!grouped.has(key))grouped.set(key,{key,beadNo:key,count:0,sum:[0,0,0],candidates:null});
+     const g=grouped.get(key);g.count++;
+     g.sum=g.sum.map((v,i)=>v+rgb[i]);
+     keyRow.push(key);
    });
-   return [...clusters[best].rgb];
- }));
- // 抽出した図案色ごとにCIEDE2000で候補を検索する。
- sourceColors=colors.map(row=>row.map(rgb=>[...rgb]));
- const grouped=new Map();
- colors.forEach((row,y)=>row.forEach((rgb,x)=>{
-   const key=rgb.join(',');
-   if(!grouped.has(key))grouped.set(key,{key,rgb:[...rgb],count:0});
-   grouped.get(key).count++;
- }));
- colorGroups=[...grouped.values()].map((g,i)=>({...g,managerNo:i+1,candidates:findClosestNicoRate(g.rgb)}));
- beadSelection=new Map(colorGroups.map(g=>[g.key,g.candidates[0].number]));
+   cellKeys.push(keyRow);
+ });
+ colorGroups=[...grouped.values()].sort((a,b)=>b.count-a.count);
+ // 1～2マスだけに現れるJPEG由来の孤立色は、既存の多い色とほぼ同色（ΔE2000≦6）の場合だけ統合。
+ // 色差が大きい小さなディテールは残し、無条件に削除しない。
+ colorGroups.forEach(g=>{g.rgb=g.sum.map(v=>Math.round(v/g.count));});
+ const rareRemap=new Map();
+ for(const rare of colorGroups.filter(g=>g.count<=2)){
+   let nearest=null,nearestDE=Infinity;
+   for(const common of colorGroups.filter(g=>g.count>2)){
+     const de=deltaE2000(rgbToLab(rare.rgb),rgbToLab(common.rgb));
+     if(de<nearestDE){nearestDE=de;nearest=common;}
+   }
+   if(nearest&&nearestDE<=6){
+     nearest.count+=rare.count;
+     nearest.sum=nearest.sum.map((v,i)=>v+rare.sum[i]);
+     nearest.rgb=nearest.sum.map(v=>Math.round(v/nearest.count));
+     rareRemap.set(rare.key,nearest.key);
+   }
+ }
+ colorGroups=colorGroups.filter(g=>!rareRemap.has(g.key)).sort((a,b)=>b.count-a.count);
+ colorGroups.forEach((g,i)=>{
+   g.managerNo=i+1;
+   g.candidates=findClosestNicoRate(g.rgb);
+ });
+ sourceColors=cellKeys.map(row=>row.map(key=>rareRemap.get(key)||key));
+ beadSelection=new Map(colorGroups.map(g=>[g.key,g.key]));
  updatePatternFromSelections();
  renderPattern();
  document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
  document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  renderPalette();
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\nRGB近似統合：距離 ${tolerance} 以下（JPEGノイズを考慮）\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
+ downloadBtn.disabled=false;
+ statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n色統合：5×5中央サンプル／同一NicoRateビーズNo.を統合\n孤立色処理：1～2マスの色はΔE2000≦6の場合のみ近似色へ統合\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
  const groupByKey=new Map(colorGroups.map(g=>[g.key,g]));
- lastColors=sourceColors.map(row=>row.map(rgb=>{
-   const g=groupByKey.get(rgb.join(','));
-   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(g.key))||g.candidates[0];
+ lastColors=sourceColors.map(row=>row.map(key=>{
+   const g=groupByKey.get(key);
+   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(key))||g.candidates[0];
    return [...bead.rgb];
  }));
- lastNumbers=sourceColors.map(row=>row.map(rgb=>groupByKey.get(rgb.join(',')).managerNo));
+ lastNumbers=sourceColors.map(row=>row.map(key=>groupByKey.get(key).managerNo));
 }
 function renderPalette(){
  const pal=document.getElementById('palette');pal.innerHTML='';
