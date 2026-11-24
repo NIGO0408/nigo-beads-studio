@@ -219,70 +219,128 @@ function findClosestNicoRate(rgb){
   .sort((a,b)=>a.deltaE-b.deltaE);
 }
 
+
+// 画像全体から元図案の色パレットを復元する。
+// JPEGの微小な色差をマス単位でNicoRateへ照合する旧方式は使わない。
+const TARGET_ART_COLORS = 15;
+
+function labDistance2(a,b){
+ return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2;
+}
+function kmeansPalette(samples,k){
+ const labs=samples.map(s=>rgbToLab(s));
+ // 決定的なk-means++初期化。再実行しても結果が揺れにくい。
+ const centers=[];
+ let first=0, bestScore=-1;
+ for(let i=0;i<labs.length;i++){
+   const score=(samples[i][0]+samples[i][1]+samples[i][2]);
+   if(score>bestScore){bestScore=score;first=i;}
+ }
+ centers.push([...labs[first]]);
+ while(centers.length<k){
+   const weights=labs.map(l=>Math.min(...centers.map(c=>labDistance2(l,c))));
+   let total=weights.reduce((a,b)=>a+b,0);
+   if(total<=0)break;
+   // 固定シードの疑似乱数で初期中心を決める
+   let r=(centers.length*0.6180339887498949%1)*total,idx=0;
+   for(;idx<weights.length-1;idx++){r-=weights[idx];if(r<=0)break;}
+   centers.push([...labs[idx]]);
+ }
+ while(centers.length<k)centers.push([...labs[centers.length%labs.length]]);
+ let labels=new Array(samples.length).fill(0);
+ for(let iter=0;iter<35;iter++){
+   const sums=Array.from({length:k},()=>[0,0,0,0]);
+   let changed=0;
+   for(let i=0;i<labs.length;i++){
+     let bi=0,bd=Infinity;
+     for(let c=0;c<k;c++){const d=labDistance2(labs[i],centers[c]);if(d<bd){bd=d;bi=c;}}
+     if(labels[i]!==bi)changed++;
+     labels[i]=bi;
+     sums[bi][0]+=labs[i][0];sums[bi][1]+=labs[i][1];sums[bi][2]+=labs[i][2];sums[bi][3]++;
+   }
+   for(let c=0;c<k;c++){
+     if(sums[c][3])centers[c]=sums[c].slice(0,3).map(v=>v/sums[c][3]);
+     else{
+       // 空クラスタは、現在の中心から最も遠いサンプルで再配置
+       let far=0,fd=-1;
+       for(let i=0;i<labs.length;i++){const d=Math.min(...centers.filter((_,j)=>j!==c).map(x=>labDistance2(labs[i],x)),Infinity);if(d>fd){fd=d;far=i;}}
+       centers[c]=[...labs[far]];
+     }
+   }
+   if(changed===0)break;
+ }
+ // 最終中心へ再割当てし、各クラスタの実画素RGB平均を代表色とする
+ const groups=Array.from({length:k},(_,i)=>({key:`C${i+1}`,label:i,count:0,sum:[0,0,0]}));
+ const finalLabels=[];
+ for(let i=0;i<labs.length;i++){
+   let bi=0,bd=Infinity;
+   for(let c=0;c<k;c++){const d=labDistance2(labs[i],centers[c]);if(d<bd){bd=d;bi=c;}}
+   finalLabels.push(bi);
+   const g=groups[bi];g.count++;g.sum=g.sum.map((v,j)=>v+samples[i][j]);
+ }
+ // 極小クラスタも消さずに保持。15色という既知の元図案数を優先する。
+ groups.forEach(g=>{g.rgb=g.sum.map(v=>Math.round(v/Math.max(1,g.count)));});
+ return {groups,labels:finalLabels};
+}
+
+// 15個の復元色に、異なるNicoRate色を全体最小色差で割り当てる。
+// 長方形コスト行列（復元色15 × NicoRate色173）のハンガリアン法。
+function assignUniqueBeads(groups){
+ const n=groups.length,m=nicoRatePalette.length;
+ const cost=groups.map(g=>nicoRatePalette.map(b=>deltaE2000(rgbToLab(g.rgb),rgbToLab(b.rgb))));
+ const u=new Array(n+1).fill(0),v=new Array(m+1).fill(0);
+ const p=new Array(m+1).fill(0),way=new Array(m+1).fill(0);
+ for(let i=1;i<=n;i++){
+   p[0]=i;let j0=0;
+   const minv=new Array(m+1).fill(Infinity),used=new Array(m+1).fill(false);
+   do{
+     used[j0]=true;const i0=p[j0];let delta=Infinity,j1=0;
+     for(let j=1;j<=m;j++)if(!used[j]){
+       const cur=cost[i0-1][j-1]-u[i0]-v[j];
+       if(cur<minv[j]){minv[j]=cur;way[j]=j0;}
+       if(minv[j]<delta){delta=minv[j];j1=j;}
+     }
+     for(let j=0;j<=m;j++){if(used[j]){u[p[j]]+=delta;v[j]-=delta;}else minv[j]-=delta;}
+     j0=j1;
+   }while(p[j0]!==0);
+   do{const j1=way[j0];p[j0]=p[j1];j0=j1;}while(j0!==0);
+ }
+ const chosen=new Array(n);
+ for(let j=1;j<=m;j++)if(p[j])chosen[p[j]-1]=nicoRatePalette[j-1];
+ return chosen;
+}
+
 convertBtn.addEventListener('click',()=>{
  try{
- const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
- // 格子ごとの中央3×3画素の最頻色を取得する。
- const rawColors=[];
- for(let y=0;y<grid.rows;y++){
-   const row=[];
-   for(let x=0;x<grid.cols;x++){
-     const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
-     const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
-     row.push(sampleAverage(sd,sx,sy,1,1));
+   const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
+   const rawColors=[];
+   for(let y=0;y<grid.rows;y++){
+     const row=[];
+     for(let x=0;x<grid.cols;x++){
+       const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
+       const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
+       row.push(sampleAverage(sd,sx,sy,1,1));
+     }
+     rawColors.push(row);
    }
-   rawColors.push(row);
- }
- // 重要：抽出RGBを先に別々の管理色へ分けず、最初にNicoRate色へ照合する。
- // 同じビーズNo.に一致したRGBは一つのグループへ統合し、同じ色のカード重複を防ぐ。
- const matchCache=new Map(),grouped=new Map(),cellKeys=[];
- rawColors.forEach((row,y)=>{
-   const keyRow=[];
-   row.forEach(rgb=>{
-     const rgbKey=rgb.join(',');
-     let match=matchCache.get(rgbKey);
-     if(!match){match=findClosestNicoRate(rgb)[0];matchCache.set(rgbKey,match);}
-     const key=match.number;
-     if(!grouped.has(key))grouped.set(key,{key,beadNo:key,count:0,sum:[0,0,0],candidates:null});
-     const g=grouped.get(key);g.count++;
-     g.sum=g.sum.map((v,i)=>v+rgb[i]);
-     keyRow.push(key);
-   });
-   cellKeys.push(keyRow);
- });
- colorGroups=[...grouped.values()].sort((a,b)=>b.count-a.count);
- // 1～2マスだけに現れるJPEG由来の孤立色は、既存の多い色とほぼ同色（ΔE2000≦6）の場合だけ統合。
- // 色差が大きい小さなディテールは残し、無条件に削除しない。
- colorGroups.forEach(g=>{g.rgb=g.sum.map(v=>Math.round(v/g.count));});
- const rareRemap=new Map();
- for(const rare of colorGroups.filter(g=>g.count<=2)){
-   let nearest=null,nearestDE=Infinity;
-   for(const common of colorGroups.filter(g=>g.count>2)){
-     const de=deltaE2000(rgbToLab(rare.rgb),rgbToLab(common.rgb));
-     if(de<nearestDE){nearestDE=de;nearest=common;}
-   }
-   if(nearest&&nearestDE<=6){
-     nearest.count+=rare.count;
-     nearest.sum=nearest.sum.map((v,i)=>v+rare.sum[i]);
-     nearest.rgb=nearest.sum.map(v=>Math.round(v/nearest.count));
-     rareRemap.set(rare.key,nearest.key);
-   }
- }
- colorGroups=colorGroups.filter(g=>!rareRemap.has(g.key)).sort((a,b)=>b.count-a.count);
- colorGroups.forEach((g,i)=>{
-   g.managerNo=i+1;
-   g.candidates=findClosestNicoRate(g.rgb);
- });
- sourceColors=cellKeys.map(row=>row.map(key=>rareRemap.get(key)||key));
- beadSelection=new Map(colorGroups.map(g=>[g.key,g.key]));
- updatePatternFromSelections();
- renderPattern();
- document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
- document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
- document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
- renderPalette();
- downloadBtn.disabled=false;
- statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n色統合：5×5中央サンプル／同一NicoRateビーズNo.を統合\n孤立色処理：1～2マスの色はΔE2000≦6の場合のみ近似色へ統合\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較`;
+   const flat=rawColors.flat();
+   const clustered=kmeansPalette(flat,TARGET_ART_COLORS);
+   colorGroups=clustered.groups
+     .map((g,i)=>({...g,managerNo:i+1,beadNo:null,candidates:findClosestNicoRate(g.rgb)}))
+     .sort((a,b)=>b.count-a.count);
+   // ソート後も各セルが正しいグループを参照できるよう、元ラベル順のキー表を作る
+   const keyByLabel=new Map(colorGroups.map(g=>[g.label,g.key]));
+   sourceColors=clustered.labels.map(label=>keyByLabel.get(label));
+   const assigned=assignUniqueBeads(colorGroups);
+   beadSelection=new Map(colorGroups.map((g,i)=>[g.key,assigned[i].number]));
+   updatePatternFromSelections();
+   renderPattern();
+   document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
+   document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
+   document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
+   renderPalette();
+   downloadBtn.disabled=false;
+   statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n色抽出：画像全体をCIELAB空間で15色に分類\nNicoRate照合：15色を173色から重複なしの全体最小色差で割当`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
