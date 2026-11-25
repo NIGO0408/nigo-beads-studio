@@ -51,6 +51,13 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <p class="note">2枚は同じイラスト・同じ縦横比で用意してください。格子画像は黒など、背景や絵と区別しやすい線がおすすめです。</p>
 <div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button></div>
 <div id="status" class="status">2枚の画像を選択してください。</div>
+<div id="rgb-capture-report" style="margin-top:10px;padding:10px;border:1px solid #b8c7d9;border-radius:8px;background:#f7faff;display:none">
+  <strong>第1段階：RGB取得検証</strong>
+  <div id="rgb-capture-summary" style="margin:6px 0;font-size:13px"></div>
+  <button id="rgb-capture-csv" type="button" disabled>取得した全RGBデータをCSV保存</button>
+  <p style="font-size:11px;color:#555;margin:6px 0 0">各マスの内側9地点について、各地点の3×3近傍RGB中央値を記録します。色の統合・15色への分類は、この検証データには適用しません。</p>
+</div>
+
 </section>
 <section class="panel">
 <h2>2. 変換結果</h2>
@@ -147,6 +154,49 @@ function sampleCellRGB(d,x0,y0,x1,y1){
  const median=a=>{a.sort((u,v)=>u-v);return a[4]};
  return [0,1,2].map(ch=>median(values.map(v=>v[ch])));
 }
+
+// 第1段階専用：各セルの内側9地点を独立して記録する。
+// ここでは色の平均・統合・クラスタリングを一切行わない。
+let rgbCaptureRows=[];
+function sampleCellRGBDetails(d,x0,y0,x1,y1){
+ const points=[];
+ const positions=[
+  ["左上",.30,.30],["上",.50,.30],["右上",.70,.30],
+  ["左",.30,.50],["中央",.50,.50],["右",.70,.50],
+  ["左下",.30,.70],["下",.50,.70],["右下",.70,.70]
+ ];
+ for(const [name,fx,fy] of positions){
+   const x=Math.max(0,Math.min(d.w-1,Math.round(x0+(x1-x0)*fx)));
+   const y=Math.max(0,Math.min(d.h-1,Math.round(y0+(y1-y0)*fy)));
+   const rr=[],gg=[],bb=[];
+   for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+     const px=Math.max(0,Math.min(d.w-1,x+ox));
+     const py=Math.max(0,Math.min(d.h-1,y+oy));
+     const i=(py*d.w+px)*4;
+     rr.push(d.data[i]);gg.push(d.data[i+1]);bb.push(d.data[i+2]);
+   }
+   const median=a=>{a.sort((u,v)=>u-v);return a[4]};
+   points.push({name,x,y,r:median(rr),g:median(gg),b:median(bb)});
+ }
+ return points;
+}
+function downloadRGCCaptureCSV(){
+ if(!rgbCaptureRows.length)return;
+ const head=["列","行","地点","画像X","画像Y","R","G","B"];
+ const lines=[head.join(",")];
+ for(const row of rgbCaptureRows){
+   for(const p of row.points){
+     lines.push([row.col+1,row.row+1,p.name,p.x,p.y,p.r,p.g,p.b].join(","));
+   }
+ }
+ const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");a.href=url;
+ a.download="NIGO_BEADS_STUDIO_RGB_capture_9points.csv";
+ document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+document.getElementById("rgb-capture-csv").addEventListener("click",downloadRGCCaptureCSV);
+
 function renderPattern(){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
@@ -317,15 +367,26 @@ convertBtn.addEventListener('click',()=>{
  try{
    const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
    const rawColors=[];
+   rgbCaptureRows=[];
    for(let y=0;y<grid.rows;y++){
      const row=[];
      for(let x=0;x<grid.cols;x++){
        const sx0=grid.xs[x]*sd.w/gd.w,sx1=grid.xs[x+1]*sd.w/gd.w;
        const sy0=grid.ys[y]*sd.h/gd.h,sy1=grid.ys[y+1]*sd.h/gd.h;
+       // 第1段階の検証記録：9地点を別々に保存
+       const points=sampleCellRGBDetails(sd,sx0,sy0,sx1,sy1);
+       rgbCaptureRows.push({col:x,row:y,points});
+       // 既存の変換結果はこの段階では変更せず、従来の代表色処理を維持
        row.push(sampleCellRGB(sd,sx0,sy0,sx1,sy1));
      }
      rawColors.push(row);
    }
+   const report=document.getElementById("rgb-capture-report");
+   const summary=document.getElementById("rgb-capture-summary");
+   const csvButton=document.getElementById("rgb-capture-csv");
+   report.style.display="block";
+   csvButton.disabled=false;
+   summary.textContent=`取得完了：${grid.cols}列 × ${grid.rows}行、${grid.cols*grid.rows}マス、各マス9地点、合計${rgbCaptureRows.length*9}地点のRGB値を個別記録しました。`;
    const flat=rawColors.flat();
    const clustered=kmeansPalette(flat,TARGET_ART_COLORS);
    colorGroups=clustered.groups
@@ -343,7 +404,7 @@ convertBtn.addEventListener('click',()=>{
    document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
    renderPalette();
    downloadBtn.disabled=false;
-   statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n色抽出：各マス9地点をサンプリングし、RGB距離で15色に分類\nNicoRate照合：15色を173色から重複なしの全体最小色差で割当`;
+   statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n第1段階：各マス9地点のRGB値を個別記録（CSV出力可能）\nNicoRate照合：15色を173色から重複なしの全体最小色差で割当`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
