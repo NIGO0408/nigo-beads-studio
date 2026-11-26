@@ -55,7 +55,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <section class="panel">
 <h2>2. 変換結果</h2>
 <div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
-<p class="note">各マスの中央付近を元イラストからサンプリングしています。番号は色ごとの管理番号です。</p>
+<p class="note">各マス中央の3×3画素からRGB中央値を取得しています。番号は色ごとの管理番号です。</p>
 <div class="view-controls">
 <label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
 <select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
@@ -184,7 +184,18 @@ function detectGrid(d){
  return {xs:x.lines,ys:y.lines,cols:x.lines.length-1,rows:y.lines.length-1,
    pitchX:x.pitch,pitchY:y.pitch,qualityX:x.quality,qualityY:y.quality};
 }
-function sampleAverage(d,x,y,rx,ry){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,Math.floor(y-ry));yy<=Math.min(d.h-1,Math.ceil(y+ry));yy++)for(let xx=Math.max(0,Math.floor(x-rx));xx<=Math.min(d.w-1,Math.ceil(x+rx));xx++){let i=(yy*d.w+xx)*4;rr+=d.data[i];gg+=d.data[i+1];bb+=d.data[i+2];n++}return [Math.round(rr/n),Math.round(gg/n),Math.round(bb/n)]}
+function sampleMedian3x3(d,x,y){
+ const rs=[],gs=[],bs=[];
+ const cx=Math.round(x),cy=Math.round(y);
+ for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+   const px=Math.max(0,Math.min(d.w-1,cx+ox));
+   const py=Math.max(0,Math.min(d.h-1,cy+oy));
+   const i=(py*d.w+px)*4;
+   rs.push(d.data[i]);gs.push(d.data[i+1]);bs.push(d.data[i+2]);
+ }
+ const median=a=>{a.sort((u,v)=>u-v);return a[4]};
+ return [median(rs),median(gs),median(bs)];
+}
 function renderPattern(){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
@@ -272,7 +283,7 @@ convertBtn.addEventListener('click',()=>{
  for(let y=0;y<grid.rows;y++){let row=[];for(let x=0;x<grid.cols;x++){
  const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
  const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
- row.push(sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8)));
+ row.push(sampleMedian3x3(sd,sx,sy));
  }rawColors.push(row)}
  // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
  // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
