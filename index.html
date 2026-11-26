@@ -53,7 +53,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </label>
 </div>
 <p class="note">2枚は同じイラスト・同じ縦横比で用意してください。格子画像は黒など、背景や絵と区別しやすい線がおすすめです。</p>
-<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button></div>
+<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>座標番号・色一覧付きPNGを保存</button></div>
 <div id="status" class="status">2枚の画像を選択してください。</div>
 </section>
 <section class="panel">
@@ -416,10 +416,56 @@ function renderPalette(){
  });
 }
 downloadBtn.addEventListener('click',()=>{
+ if(!lastColors||!colorGroups.length)return;
+ const rows=lastColors.length,cols=lastColors[0].length,cell=24;
+ const marginLeft=42,marginRight=18,marginTop=42,marginBottom=24;
+ const gridWidth=cols*cell,gridHeight=rows*cell;
+ const legendColumns=3,legendColumnWidth=300,legendRowHeight=30;
+ const legendRows=Math.ceil(colorGroups.length/legendColumns);
+ const canvasWidth=Math.max(marginLeft+gridWidth+marginRight,legendColumns*legendColumnWidth+40);
+ const legendTop=marginTop+gridHeight+48;
+ const canvasHeight=legendTop+34+legendRows*legendRowHeight+marginBottom;
+
+ // 画面のハイライト状態に関係なく、全色の図案を別キャンバスに描画する。
+ const patternCanvas=document.createElement('canvas');
+ const patternCtx=patternCanvas.getContext('2d');
+ drawPattern(patternCtx,null);
+
  const exportCanvas=document.createElement('canvas');
+ exportCanvas.width=canvasWidth;exportCanvas.height=canvasHeight;
  const exportCtx=exportCanvas.getContext('2d');
- drawPattern(exportCtx,null);
- const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=exportCanvas.toDataURL('image/png');a.click();
+ exportCtx.fillStyle='#fff';exportCtx.fillRect(0,0,canvasWidth,canvasHeight);
+ exportCtx.fillStyle='#222';exportCtx.textAlign='left';exportCtx.textBaseline='alphabetic';
+ exportCtx.font='bold 18px sans-serif';
+ exportCtx.fillText(`NIGO BEADS STUDIO  図案（横${cols} × 縦${rows}）`,marginLeft,25);
+
+ // 図案を配置。
+ exportCtx.drawImage(patternCanvas,marginLeft,marginTop);
+
+ // 上側に横番号、左側に縦番号を各マスの中央へ配置。
+ exportCtx.fillStyle='#222';exportCtx.font='10px Arial,sans-serif';
+ exportCtx.textAlign='center';exportCtx.textBaseline='middle';
+ for(let x=0;x<cols;x++)exportCtx.fillText(String(x+1),marginLeft+(x+.5)*cell,marginTop-15);
+ for(let y=0;y<rows;y++)exportCtx.fillText(String(y+1),marginLeft-20,marginTop+(y+.5)*cell);
+
+ // 図案の管理番号に対応する色一覧。個数はその管理番号が使われるマス数。
+ exportCtx.textAlign='left';exportCtx.textBaseline='alphabetic';
+ exportCtx.font='bold 16px sans-serif';
+ exportCtx.fillText(`使用色一覧（${colorGroups.length}色）`,20,legendTop);
+ colorGroups.forEach((g,index)=>{
+   const col=index%legendColumns,row=Math.floor(index/legendColumns);
+   const x=20+col*legendColumnWidth,y=legendTop+14+row*legendRowHeight;
+   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(g.key))||g.candidates[0];
+   exportCtx.fillStyle=`rgb(${bead.rgb.join(',')})`;
+   exportCtx.fillRect(x,y,19,19);
+   exportCtx.strokeStyle='#777';exportCtx.lineWidth=1;exportCtx.strokeRect(x+.5,y+.5,18,18);
+   exportCtx.fillStyle='#222';exportCtx.font='12px sans-serif';
+   exportCtx.fillText(`管理No.${g.managerNo}  /  ${bead.number} ${bead.name}  /  ${g.count}個`,x+26,y+14,legendColumnWidth-32);
+ });
+
+ const a=document.createElement('a');
+ a.download='beads-pattern-with-coordinates-and-color-list.png';
+ a.href=exportCanvas.toDataURL('image/png');a.click();
 });
 </script>
 </body></html>
