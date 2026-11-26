@@ -49,7 +49,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </label>
 </div>
 <p class="note">2枚は同じイラスト・同じ縦横比で用意してください。格子画像は黒など、背景や絵と区別しやすい線がおすすめです。</p>
-<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button></div>
+<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button><button id="downloadData" disabled>検証用RGBデータCSVを保存</button></div>
 <div id="status" class="status">2枚の画像を選択してください。</div>
 </section>
 <section class="panel">
@@ -77,7 +77,8 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 const sourceInput=document.getElementById('sourceFile'), gridInput=document.getElementById('gridFile');
 const convertBtn=document.getElementById('convert'), downloadBtn=document.getElementById('download');
 const statusEl=document.getElementById('status'), canvas=document.getElementById('result'), ctx=canvas.getContext('2d',{willReadFrequently:true});
-let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,colorGroups=[],beadSelection=new Map();
+let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,lastRawColors=null,colorGroups=[],beadSelection=new Map();
+const downloadDataBtn=document.getElementById('downloadData');
 let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
 const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
 const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById('flipV');
@@ -285,6 +286,7 @@ convertBtn.addEventListener('click',()=>{
  const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
  row.push(sampleMedian3x3(sd,sx,sy));
  }rawColors.push(row)}
+ lastRawColors=rawColors.map(row=>row.map(rgb=>[...rgb]));
  // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
  // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
  const tolerance=6,clusters=[];
@@ -338,7 +340,7 @@ convertBtn.addEventListener('click',()=>{
  document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  renderPalette();
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
+ downloadBtn.disabled=false;downloadDataBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
@@ -395,5 +397,19 @@ function renderPalette(){
  });
 }
 downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=canvas.toDataURL('image/png');a.click()});
+
+downloadDataBtn.addEventListener('click',()=>{
+ if(!lastRawColors||!sourceColors||!lastColors||!lastNumbers)return;
+ const rows=['列,行,抽出RGB_R,抽出RGB_G,抽出RGB_B,統合後RGB_R,統合後RGB_G,統合後RGB_B,管理番号,NicoRate番号,ビーズRGB_R,ビーズRGB_G,ビーズRGB_B'];
+ for(let y=0;y<lastRawColors.length;y++)for(let x=0;x<lastRawColors[y].length;x++){
+  const raw=lastRawColors[y][x],merged=sourceColors[y][x],bead=lastColors[y][x];
+  const group=colorGroups.find(g=>g.key===merged.join(','));
+  const beadNo=group?beadSelection.get(group.key):'';
+  rows.push([x+1,y+1,...raw,...merged,lastNumbers[y][x],beadNo,...bead].join(','));
+ }
+ const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+ const a=document.createElement('a');a.download='NIGO_BEADS_STUDIO_verification_RGB.csv';a.href=URL.createObjectURL(blob);a.click();URL.revokeObjectURL(a.href);
+});
+
 </script>
 </body></html>
