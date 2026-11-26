@@ -418,7 +418,7 @@ function renderPalette(){
 downloadBtn.addEventListener('click',()=>{
  if(!lastColors||!colorGroups.length)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
- const marginLeft=42,marginRight=18,marginTop=42,marginBottom=24;
+ const marginLeft=42,marginRight=18,marginTop=82,marginBottom=24;
  const gridWidth=cols*cell,gridHeight=rows*cell;
  const legendColumns=3,legendColumnWidth=300,legendRowHeight=30;
  const legendRows=Math.ceil(colorGroups.length/legendColumns);
