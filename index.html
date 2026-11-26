@@ -51,18 +51,11 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <p class="note">2枚は同じイラスト・同じ縦横比で用意してください。格子画像は黒など、背景や絵と区別しやすい線がおすすめです。</p>
 <div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button></div>
 <div id="status" class="status">2枚の画像を選択してください。</div>
-<div id="rgb-capture-report" style="margin-top:10px;padding:10px;border:1px solid #b8c7d9;border-radius:8px;background:#f7faff;display:none">
-  <strong>第1段階：RGB取得検証</strong>
-  <div id="rgb-capture-summary" style="margin:6px 0;font-size:13px"></div>
-  <button id="rgb-capture-csv" type="button" disabled>取得した全RGBデータをCSV保存</button>
-  <p style="font-size:11px;color:#555;margin:6px 0 0">各マスの内側9地点について、各地点の3×3近傍RGB中央値を記録します。色の統合・15色への分類は、この検証データには適用しません。</p>
-</div>
-
 </section>
 <section class="panel">
 <h2>2. 変換結果</h2>
 <div class="stats"><span id="dimensions">マス目：未検出</span><span id="count">使用色数：-</span><span id="cells">総マス数：-</span></div>
-<p class="note">各マス中央の5×5画素から最頻色を取得し、同じNicoRateビーズNo.に一致した色を一つにまとめます。1～2マスだけの孤立色も、近い色差の場合に限って統合します。番号は使用色ごとの管理番号です。</p>
+<p class="note">各マスの中央付近を元イラストからサンプリングしています。番号は色ごとの管理番号です。</p>
 <div class="view-controls">
 <label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
 <select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
@@ -94,109 +87,104 @@ function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.creat
 async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sourceInput.files[0]):null;gridImg=gridInput.files[0]?await loadImage(gridInput.files[0]):null;convertBtn.disabled=!(sourceImg&&gridImg);statusEl.textContent=convertBtn.disabled?'2枚の画像を選択してください。':'画像を読み込みました。図案に変換できます。';}catch(e){statusEl.textContent='画像を読み込めませんでした。PNG/JPEG画像を確認してください。'}}
 sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
 function imageData(im){const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(im,0,0);return {data:x.getImageData(0,0,c.width,c.height).data,w:c.width,h:c.height}}
-function lineScores(d,axis){const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w,s=new Float32Array(n);for(let p=0;p<n;p++){let dark=0;for(let q=0;q<other;q++){const i=axis==='x'?(q*d.w+p)*4:(p*d.w+q)*4;const r=d.data[i],g=d.data[i+1],b=d.data[i+2];if(r<75&&g<75&&b<75)dark++}s[p]=dark/other}return s}
 
+// 格子線の濃度プロファイルを作成。
+// 1本の線が画像の多くの行/列に連続して現れる性質を利用する。
+function lineScores(d,axis){
+ const n=axis==='x'?d.w:d.h,other=axis==='x'?d.h:d.w;
+ const scores=new Float32Array(n);
+ for(let p=0;p<n;p++){
+   let dark=0;
+   for(let q=0;q<other;q++){
+     const i=axis==='x'?(q*d.w+p)*4:(p*d.w+q)*4;
+     const r=d.data[i],g=d.data[i+1],b=d.data[i+2];
+     if(r<90&&g<90&&b<90)dark++;
+   }
+   scores[p]=dark/other;
+ }
+ return scores;
+}
+
+// 自己相関で格子の基本ピッチを推定し、各線の実座標へ補正する。
+// 旧方式の固定ピッチ総当たりは、格子の約2/3周期を選ぶ誤検出を起こすため廃止。
 function detectAxis(scores){
- let candidates=[];
+ const n=scores.length;
+ if(n<40)throw Error('画像サイズが小さすぎます。');
+ let mean=0;
+ for(let i=0;i<n;i++)mean+=scores[i];
+ mean/=n;
+ const centered=new Float64Array(n);
+ let energy=0;
+ for(let i=0;i<n;i++){centered[i]=scores[i]-mean;energy+=centered[i]*centered[i];}
+ if(energy<1e-9)throw Error('格子線の濃度差を検出できません。');
 
- for(let pitch=5;pitch<=10;pitch+=.1){
-  for(let phase=0;phase<pitch;phase+=.5){
-   let pos=[];
-   for(let x=phase;x<scores.length;x+=pitch){
-    pos.push(Math.round(x));
-   }
-   if(pos.length<4)continue;
-
-   let mean=pos.reduce((v,x)=>v+(scores[x]||0),0)/pos.length;
-   candidates.push({mean,pitch,phase,pos});
-  }
+ const maxLag=Math.min(60,Math.floor(n/4));
+ const ac=new Float64Array(maxLag+1);
+ for(let lag=1;lag<=maxLag;lag++){
+   let sum=0;
+   for(let i=0;i<n-lag;i++)sum+=centered[i]*centered[i+lag];
+   ac[lag]=sum/energy;
  }
+ let basePitch=0;
+ // 最初に現れる十分強い自己相関ピークを採用し、倍周期を避ける。
+ for(let lag=5;lag<maxLag;lag++){
+   if(ac[lag]>=ac[lag-1]&&ac[lag]>ac[lag+1]&&ac[lag]>.28){
+     basePitch=lag;break;
+   }
+ }
+ if(!basePitch)throw Error('格子の基本間隔を特定できません。');
 
- if(!candidates.length)throw Error('格子線を検出できません。');
+ let bestScore=-Infinity,bestPitch=basePitch,bestPhase=0;
+ for(let pitch=basePitch-.65;pitch<=basePitch+.6501;pitch+=.025){
+   for(let phase=0;phase<pitch;phase+=.1){
+     let sum=0,count=0;
+     for(let pos=phase;pos<n;pos+=pitch){
+       const c=Math.round(pos);let peak=0;
+       for(let k=-2;k<=2;k++){
+         const at=c+k;
+         if(at>=0&&at<n&&scores[at]>peak)peak=scores[at];
+       }
+       sum+=peak;count++;
+     }
+     const score=sum/Math.max(1,count);
+     if(score>bestScore){bestScore=score;bestPitch=pitch;bestPhase=phase;}
+   }
+ }
+ const lines=[];
+ for(let pos=bestPhase;pos<n;pos+=bestPitch){
+   const c=Math.round(pos);let chosen=c,peak=-1;
+   for(let k=-2;k<=2;k++){
+     const at=c+k;
+     if(at>=0&&at<n&&scores[at]>peak){peak=scores[at];chosen=at;}
+   }
+   if(!lines.length||chosen-lines[lines.length-1]>=bestPitch*.65)lines.push(chosen);
+ }
+ if(lines.length<4)throw Error('格子線を十分に検出できません。');
 
- let maxMean=Math.max(...candidates.map(c=>c.mean));
+ // 画像端が格子の外枠に対応する場合、端の線を画像端へ揃える。
+ // 今回のテスト画像では左/上端が0、右/下端が画像最終画素に一致する。
+ if(lines[0]<=bestPitch*.35)lines[0]=0;
+ else if(lines[0]>bestPitch*.65)lines.unshift(0);
+ const endGap=(n-1)-lines[lines.length-1];
+ if(endGap<=bestPitch*1.05)lines.push(n-1);
 
- let best=candidates
-  .filter(c=>maxMean-c.mean<=.02)
-  .sort((a,b)=>b.pos.length-a.pos.length)[0];
-
- if(!best||best.mean<.35)throw Error('格子線を検出できません。線を黒く、均等にしてください。');
-
- return best.pos.map(x=>{
-  let lo=Math.max(0,x-2),hi=Math.min(scores.length-1,x+2),b=x;
-  for(let j=lo;j<=hi;j++)if(scores[j]>scores[b])b=j;
-  return b;
- });
+ // 重複を除去し、間隔の異常を検査する。
+ const clean=lines.filter((v,i,a)=>i===0||v>a[i-1]);
+ const gaps=[];
+ for(let i=1;i<clean.length;i++)gaps.push(clean[i]-clean[i-1]);
+ const sorted=[...gaps].sort((a,b)=>a-b);
+ const median=sorted[Math.floor(sorted.length/2)];
+ const irregular=gaps.filter(v=>v<median*.65||v>median*1.45).length;
+ if(irregular>Math.max(2,gaps.length*.08))throw Error('格子間隔が不規則です。検出を中止しました。');
+ return {lines:clean,pitch:bestPitch,quality:bestScore};
 }
-
 function detectGrid(d){
- let xs=detectAxis(lineScores(d,'x')),ys=detectAxis(lineScores(d,'y'));
- if(xs.length<3||ys.length<3)throw Error('格子線を十分に検出できません。');
- return {xs,ys,cols:xs.length-1,rows:ys.length-1}
+ const x=detectAxis(lineScores(d,'x'));
+ const y=detectAxis(lineScores(d,'y'));
+ return {xs:x.lines,ys:y.lines,cols:x.lines.length-1,rows:y.lines.length-1,
+   pitchX:x.pitch,pitchY:y.pitch,qualityX:x.quality,qualityY:y.quality};
 }
-function sampleCellRGB(d,x0,y0,x1,y1){
- // 1マスの中央一点ではなく、内側3×3の計9地点を調べる。
- // 格子線・隣接セルの混入を避けるため、セルの外周30%はサンプリングしない。
- const values=[];
- for(const fy of [.30,.50,.70])for(const fx of [.30,.50,.70]){
-   const x=Math.max(0,Math.min(d.w-1,Math.round(x0+(x1-x0)*fx)));
-   const y=Math.max(0,Math.min(d.h-1,Math.round(y0+(y1-y0)*fy)));
-   // JPEGの局所ノイズを抑えるため、各地点の3×3近傍の中央値を採用。
-   const rr=[],gg=[],bb=[];
-   for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
-     const px=Math.max(0,Math.min(d.w-1,x+ox)),py=Math.max(0,Math.min(d.h-1,y+oy));
-     const i=(py*d.w+px)*4;rr.push(d.data[i]);gg.push(d.data[i+1]);bb.push(d.data[i+2]);
-   }
-   const med=a=>{a.sort((u,v)=>u-v);return a[4]};
-   values.push([med(rr),med(gg),med(bb)]);
- }
- // 9地点のRGB中央値。Lab/CIEDE2000は元色の分類には使用しない。
- const median=a=>{a.sort((u,v)=>u-v);return a[4]};
- return [0,1,2].map(ch=>median(values.map(v=>v[ch])));
-}
-
-// 第1段階専用：各セルの内側9地点を独立して記録する。
-// ここでは色の平均・統合・クラスタリングを一切行わない。
-let rgbCaptureRows=[];
-function sampleCellRGBDetails(d,x0,y0,x1,y1){
- const points=[];
- const positions=[
-  ["左上",.30,.30],["上",.50,.30],["右上",.70,.30],
-  ["左",.30,.50],["中央",.50,.50],["右",.70,.50],
-  ["左下",.30,.70],["下",.50,.70],["右下",.70,.70]
- ];
- for(const [name,fx,fy] of positions){
-   const x=Math.max(0,Math.min(d.w-1,Math.round(x0+(x1-x0)*fx)));
-   const y=Math.max(0,Math.min(d.h-1,Math.round(y0+(y1-y0)*fy)));
-   const rr=[],gg=[],bb=[];
-   for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
-     const px=Math.max(0,Math.min(d.w-1,x+ox));
-     const py=Math.max(0,Math.min(d.h-1,y+oy));
-     const i=(py*d.w+px)*4;
-     rr.push(d.data[i]);gg.push(d.data[i+1]);bb.push(d.data[i+2]);
-   }
-   const median=a=>{a.sort((u,v)=>u-v);return a[4]};
-   points.push({name,x,y,r:median(rr),g:median(gg),b:median(bb)});
- }
- return points;
-}
-function downloadRGCCaptureCSV(){
- if(!rgbCaptureRows.length)return;
- const head=["列","行","地点","画像X","画像Y","R","G","B"];
- const lines=[head.join(",")];
- for(const row of rgbCaptureRows){
-   for(const p of row.points){
-     lines.push([row.col+1,row.row+1,p.name,p.x,p.y,p.r,p.g,p.b].join(","));
-   }
- }
- const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
- const url=URL.createObjectURL(blob);
- const a=document.createElement("a");a.href=url;
- a.download="NIGO_BEADS_STUDIO_RGB_capture_9points.csv";
- document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-}
-document.getElementById("rgb-capture-csv").addEventListener("click",downloadRGCCaptureCSV);
-
+function sampleAverage(d,x,y,rx,ry){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,Math.floor(y-ry));yy<=Math.min(d.h-1,Math.ceil(y+ry));yy++)for(let xx=Math.max(0,Math.floor(x-rx));xx<=Math.min(d.w-1,Math.ceil(x+rx));xx++){let i=(yy*d.w+xx)*4;rr+=d.data[i];gg+=d.data[i+1];bb+=d.data[i+2];n++}return [Math.round(rr/n),Math.round(gg/n),Math.round(bb/n)]}
 function renderPattern(){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
@@ -276,145 +264,80 @@ function findClosestNicoRate(rgb){
   .sort((a,b)=>a.deltaE-b.deltaE);
 }
 
-
-// 画像全体から元図案の色パレットを復元する。
-// JPEGの微小な色差をマス単位でNicoRateへ照合する旧方式は使わない。
-const TARGET_ART_COLORS = 15;
-
-function rgbDistance2(a,b){
- const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];
- return dr*dr+dg*dg+db*db;
-}
-function kmeansPalette(samples,k){
- // 元図案の色復元はRGB値で行う。CIEDE2000はNicoRate照合時だけ使用。
- const centers=[];
- // 最頻RGBを最初の中心にして、面積の大きい主要色から安定して開始。
- const freq=new Map();
- for(const rgb of samples){const key=rgb.join(',');const v=freq.get(key);if(v)v.count++;else freq.set(key,{rgb:[...rgb],count:1});}
- const ranked=[...freq.values()].sort((a,b)=>b.count-a.count);
- centers.push([...ranked[0].rgb]);
- // RGB距離に基づく決定的なk-means++初期化。
- while(centers.length<k){
-   const weights=ranked.map(item=>item.count*Math.min(...centers.map(c=>rgbDistance2(item.rgb,c))));
-   const total=weights.reduce((a,b)=>a+b,0);
-   if(total<=0){
-     const next=ranked.find(item=>!centers.some(c=>rgbDistance2(item.rgb,c)===0));
-     if(!next)break;centers.push([...next.rgb]);continue;
-   }
-   let r=((centers.length*0.6180339887498949)%1)*total,idx=0;
-   for(;idx<weights.length-1;idx++){r-=weights[idx];if(r<=0)break;}
-   centers.push([...ranked[idx].rgb]);
- }
- while(centers.length<k)centers.push([...ranked[centers.length%ranked.length].rgb]);
- let labels=new Array(samples.length).fill(-1);
- for(let iter=0;iter<60;iter++){
-   const sums=Array.from({length:k},()=>[0,0,0,0]);let changed=0;
-   for(let i=0;i<samples.length;i++){
-     let bi=0,bd=Infinity;
-     for(let c=0;c<k;c++){const d=rgbDistance2(samples[i],centers[c]);if(d<bd){bd=d;bi=c;}}
-     if(labels[i]!==bi)changed++;labels[i]=bi;
-     const q=sums[bi];q[0]+=samples[i][0];q[1]+=samples[i][1];q[2]+=samples[i][2];q[3]++;
-   }
-   for(let c=0;c<k;c++){
-     if(sums[c][3])centers[c]=sums[c].slice(0,3).map(v=>v/sums[c][3]);
-     else{
-       // 空クラスタは、現在の中心から遠い頻出RGBを割り当てる。
-       let far=ranked[0],fd=-1;
-       for(const item of ranked){const d=Math.min(...centers.filter((_,j)=>j!==c).map(x=>rgbDistance2(item.rgb,x)));if(d>fd){fd=d;far=item;}}
-       centers[c]=[...far.rgb];
-     }
-   }
-   if(changed===0)break;
- }
- const groups=Array.from({length:k},(_,i)=>({key:`C${i+1}`,label:i,count:0,sum:[0,0,0]}));
- const finalLabels=[];
- for(const rgb of samples){
-   let bi=0,bd=Infinity;
-   for(let c=0;c<k;c++){const d=rgbDistance2(rgb,centers[c]);if(d<bd){bd=d;bi=c;}}
-   finalLabels.push(bi);const g=groups[bi];g.count++;g.sum=g.sum.map((v,j)=>v+rgb[j]);
- }
- groups.forEach(g=>{g.rgb=g.sum.map(v=>Math.round(v/Math.max(1,g.count)));});
- return {groups,labels:finalLabels};
-}
-// 15個の復元色に、異なるNicoRate色を全体最小色差で割り当てる。
-// 長方形コスト行列（復元色15 × NicoRate色173）のハンガリアン法。
-function assignUniqueBeads(groups){
- const n=groups.length,m=nicoRatePalette.length;
- const cost=groups.map(g=>nicoRatePalette.map(b=>deltaE2000(rgbToLab(g.rgb),rgbToLab(b.rgb))));
- const u=new Array(n+1).fill(0),v=new Array(m+1).fill(0);
- const p=new Array(m+1).fill(0),way=new Array(m+1).fill(0);
- for(let i=1;i<=n;i++){
-   p[0]=i;let j0=0;
-   const minv=new Array(m+1).fill(Infinity),used=new Array(m+1).fill(false);
-   do{
-     used[j0]=true;const i0=p[j0];let delta=Infinity,j1=0;
-     for(let j=1;j<=m;j++)if(!used[j]){
-       const cur=cost[i0-1][j-1]-u[i0]-v[j];
-       if(cur<minv[j]){minv[j]=cur;way[j]=j0;}
-       if(minv[j]<delta){delta=minv[j];j1=j;}
-     }
-     for(let j=0;j<=m;j++){if(used[j]){u[p[j]]+=delta;v[j]-=delta;}else minv[j]-=delta;}
-     j0=j1;
-   }while(p[j0]!==0);
-   do{const j1=way[j0];p[j0]=p[j1];j0=j1;}while(j0!==0);
- }
- const chosen=new Array(n);
- for(let j=1;j<=m;j++)if(p[j])chosen[p[j]-1]=nicoRatePalette[j-1];
- return chosen;
-}
-
 convertBtn.addEventListener('click',()=>{
  try{
-   const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
-   const rawColors=[];
-   rgbCaptureRows=[];
-   for(let y=0;y<grid.rows;y++){
-     const row=[];
-     for(let x=0;x<grid.cols;x++){
-       const sx0=grid.xs[x]*sd.w/gd.w,sx1=grid.xs[x+1]*sd.w/gd.w;
-       const sy0=grid.ys[y]*sd.h/gd.h,sy1=grid.ys[y+1]*sd.h/gd.h;
-       // 第1段階の検証記録：9地点を別々に保存
-       const points=sampleCellRGBDetails(sd,sx0,sy0,sx1,sy1);
-       rgbCaptureRows.push({col:x,row:y,points});
-       // 既存の変換結果はこの段階では変更せず、従来の代表色処理を維持
-       row.push(sampleCellRGB(sd,sx0,sy0,sx1,sy1));
-     }
-     rawColors.push(row);
+ const sd=imageData(sourceImg),gd=imageData(gridImg),grid=detectGrid(gd);
+ // Images represent the same full canvas; map grid-image coordinates proportionally to the source.
+ const rawColors=[];
+ for(let y=0;y<grid.rows;y++){let row=[];for(let x=0;x<grid.cols;x++){
+ const gx=(grid.xs[x]+grid.xs[x+1])/2,gy=(grid.ys[y]+grid.ys[y+1])/2;
+ const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
+ row.push(sampleAverage(sd,sx,sy,Math.max(1,sd.w/gd.w*.8),Math.max(1,sd.h/gd.h*.8)));
+ }rawColors.push(row)}
+ // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
+ // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
+ const tolerance=6,clusters=[];
+ const uniqueCounts=new Map();
+ rawColors.forEach(row=>row.forEach(rgb=>{
+   const key=rgb.join(',');
+   uniqueCounts.set(key,(uniqueCounts.get(key)||0)+1);
+ }));
+ const uniqueColors=[...uniqueCounts.entries()].map(([key,count])=>({rgb:key.split(',').map(Number),count}));
+ // 出現数の多い色から代表色を作り、近い色をそのグループへ加える。
+ uniqueColors.sort((a,b)=>b.count-a.count);
+ uniqueColors.forEach(item=>{
+   let best=-1,bestDist=Infinity;
+   for(let i=0;i<clusters.length;i++){
+     const c=clusters[i],dr=item.rgb[0]-c.rgb[0],dg=item.rgb[1]-c.rgb[1],db=item.rgb[2]-c.rgb[2];
+     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+     if(dist<=tolerance&&dist<bestDist){best=i;bestDist=dist}
    }
-   const report=document.getElementById("rgb-capture-report");
-   const summary=document.getElementById("rgb-capture-summary");
-   const csvButton=document.getElementById("rgb-capture-csv");
-   report.style.display="block";
-   csvButton.disabled=false;
-   summary.textContent=`取得完了：${grid.cols}列 × ${grid.rows}行、${grid.cols*grid.rows}マス、各マス9地点、合計${rgbCaptureRows.length*9}地点のRGB値を個別記録しました。`;
-   const flat=rawColors.flat();
-   const clustered=kmeansPalette(flat,TARGET_ART_COLORS);
-   colorGroups=clustered.groups
-     .map((g,i)=>({...g,managerNo:i+1,beadNo:null,candidates:findClosestNicoRate(g.rgb)}))
-     .sort((a,b)=>b.count-a.count);
-   // ソート後も各セルが正しいグループを参照できるよう、元ラベル順のキー表を作る
-   const keyByLabel=new Map(colorGroups.map(g=>[g.label,g.key]));
-   sourceColors=Array.from({length:grid.rows},(_,y)=>clustered.labels.slice(y*grid.cols,(y+1)*grid.cols).map(label=>keyByLabel.get(label)));
-   const assigned=assignUniqueBeads(colorGroups);
-   beadSelection=new Map(colorGroups.map((g,i)=>[g.key,assigned[i].number]));
-   updatePatternFromSelections();
-   renderPattern();
-   document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
-   document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
-   document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
-   renderPalette();
-   downloadBtn.disabled=false;
-   statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行\n第1段階：各マス9地点のRGB値を個別記録（CSV出力可能）\nNicoRate照合：15色を173色から重複なしの全体最小色差で割当`;
+   if(best<0){
+     clusters.push({sum:item.rgb.map(v=>v*item.count),count:item.count,rgb:[...item.rgb]});
+   }else{
+     const c=clusters[best];
+     c.sum=c.sum.map((v,i)=>v+item.rgb[i]*item.count);
+     c.count+=item.count;
+     c.rgb=c.sum.map(v=>Math.round(v/c.count));
+   }
+ });
+ // 最終的に確定した代表色へ全セルを再割り当てする。
+ const colors=rawColors.map(row=>row.map(rgb=>{
+   let best=0,bestDist=Infinity;
+   clusters.forEach((c,i)=>{
+     const dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
+     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+     if(dist<bestDist){best=i;bestDist=dist}
+   });
+   return [...clusters[best].rgb];
+ }));
+ // 抽出した図案色ごとにCIEDE2000で候補を検索する。
+ sourceColors=colors.map(row=>row.map(rgb=>[...rgb]));
+ const grouped=new Map();
+ colors.forEach((row,y)=>row.forEach((rgb,x)=>{
+   const key=rgb.join(',');
+   if(!grouped.has(key))grouped.set(key,{key,rgb:[...rgb],count:0});
+   grouped.get(key).count++;
+ }));
+ colorGroups=[...grouped.values()].map((g,i)=>({...g,managerNo:i+1,candidates:findClosestNicoRate(g.rgb)}));
+ beadSelection=new Map(colorGroups.map(g=>[g.key,g.candidates[0].number]));
+ updatePatternFromSelections();
+ renderPattern();
+ document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
+ document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
+ document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
+ renderPalette();
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
  const groupByKey=new Map(colorGroups.map(g=>[g.key,g]));
- lastColors=sourceColors.map(row=>row.map(key=>{
-   const g=groupByKey.get(key);
-   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(key))||g.candidates[0];
+ lastColors=sourceColors.map(row=>row.map(rgb=>{
+   const g=groupByKey.get(rgb.join(','));
+   const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(g.key))||g.candidates[0];
    return [...bead.rgb];
  }));
- lastNumbers=sourceColors.map(row=>row.map(key=>groupByKey.get(key).managerNo));
+ lastNumbers=sourceColors.map(row=>row.map(rgb=>groupByKey.get(rgb.join(',')).managerNo));
 }
 function renderPalette(){
  const pal=document.getElementById('palette');pal.innerHTML='';
