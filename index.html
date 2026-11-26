@@ -32,6 +32,10 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 .swatch select{display:block;width:100%;margin-top:5px;padding:5px;border:1px solid #bbb;border-radius:5px;font-size:12px}
 .swatch .match{font-weight:700;color:#28743c}
 .swatch .muted{color:#666}
+.swatch{cursor:pointer;transition:border-color .12s,background .12s}
+.swatch:hover{border-color:#7560a0;background:#f7f4fc}
+.swatch.is-selected{border:2px solid #4d2b91;background:#f1ebfb;padding:6px}
+.swatch:focus-visible{outline:2px solid #4d2b91;outline-offset:2px}
 @media(max-width:600px){header h1{font-size:18px}.panel{padding:12px}}
 </style>
 </head>
@@ -49,7 +53,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </label>
 </div>
 <p class="note">2枚は同じイラスト・同じ縦横比で用意してください。格子画像は黒など、背景や絵と区別しやすい線がおすすめです。</p>
-<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button><button id="downloadData" disabled>検証用RGBデータCSVを保存</button></div>
+<div class="actions"><button id="convert" disabled>図案に変換</button><button id="download" disabled>図案PNGを保存</button></div>
 <div id="status" class="status">2枚の画像を選択してください。</div>
 </section>
 <section class="panel">
@@ -77,8 +81,8 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 const sourceInput=document.getElementById('sourceFile'), gridInput=document.getElementById('gridFile');
 const convertBtn=document.getElementById('convert'), downloadBtn=document.getElementById('download');
 const statusEl=document.getElementById('status'), canvas=document.getElementById('result'), ctx=canvas.getContext('2d',{willReadFrequently:true});
-let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,lastRawColors=null,colorGroups=[],beadSelection=new Map();
-const downloadDataBtn=document.getElementById('downloadData');
+let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,colorGroups=[],beadSelection=new Map();
+let selectedManagerNo=null;
 let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
 const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
 const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById('flipV');
@@ -197,24 +201,31 @@ function sampleMedian3x3(d,x,y){
  const median=a=>{a.sort((u,v)=>u-v);return a[4]};
  return [median(rs),median(gs),median(bs)];
 }
-function renderPattern(){
+function drawPattern(targetCtx,highlightManagerNo=null){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
- canvas.width=cols*cell;canvas.height=rows*cell;ctx.imageSmoothingEnabled=false;
- canvas.style.width=(canvas.width*previewZoom)+'px';
- canvas.style.height=(canvas.height*previewZoom)+'px';
+ targetCtx.canvas.width=cols*cell;targetCtx.canvas.height=rows*cell;
+ targetCtx.imageSmoothingEnabled=false;
  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
    const sx=flipHorizontal?cols-1-x:x,sy=flipVertical?rows-1-y:y;
-   const color=lastColors[sy][sx],number=lastNumbers[sy][sx];
-   ctx.fillStyle=`rgb(${color.join(',')})`;ctx.fillRect(x*cell,y*cell,cell,cell);
-   if(showGrid){ctx.strokeStyle='#222';ctx.lineWidth=1;ctx.strokeRect(x*cell+.5,y*cell+.5,cell,cell)}
+   const originalColor=lastColors[sy][sx],number=lastNumbers[sy][sx];
+   const isDimmed=highlightManagerNo!==null && number!==highlightManagerNo;
+   const color=isDimmed?[211,211,211]:originalColor;
+   targetCtx.fillStyle=`rgb(${color.join(',')})`;targetCtx.fillRect(x*cell,y*cell,cell,cell);
+   if(showGrid){targetCtx.strokeStyle='#222';targetCtx.lineWidth=1;targetCtx.strokeRect(x*cell+.5,y*cell+.5,cell,cell)}
    if(showNumbers){
      const luminance=.299*color[0]+.587*color[1]+.114*color[2];
-     ctx.fillStyle=luminance>150?'#111':'#fff';
-     ctx.font='bold 13px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-     ctx.fillText(String(number),x*cell+cell/2,y*cell+cell/2);
+     targetCtx.fillStyle=luminance>150?'#111':'#fff';
+     targetCtx.font='bold 13px Arial,sans-serif';targetCtx.textAlign='center';targetCtx.textBaseline='middle';
+     targetCtx.fillText(String(number),x*cell+cell/2,y*cell+cell/2);
    }
  }
+}
+function renderPattern(){
+ if(!lastColors)return;
+ drawPattern(ctx,selectedManagerNo);
+ canvas.style.width=(canvas.width*previewZoom)+'px';
+ canvas.style.height=(canvas.height*previewZoom)+'px';
 }
 zoomSelect.addEventListener('change',()=>{previewZoom=Number(zoomSelect.value)||1;renderPattern()});
 gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textContent=`マス目：${showGrid?'ON':'OFF'}`;gridToggle.classList.toggle('active',showGrid);renderPattern()});
@@ -286,7 +297,6 @@ convertBtn.addEventListener('click',()=>{
  const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
  row.push(sampleMedian3x3(sd,sx,sy));
  }rawColors.push(row)}
- lastRawColors=rawColors.map(row=>row.map(rgb=>[...rgb]));
  // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
  // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
  const tolerance=6,clusters=[];
@@ -333,6 +343,7 @@ convertBtn.addEventListener('click',()=>{
    grouped.get(key).count++;
  }));
  colorGroups=[...grouped.values()].map((g,i)=>({...g,managerNo:i+1,candidates:findClosestNicoRate(g.rgb)}));
+ selectedManagerNo=null;
  beadSelection=new Map(colorGroups.map(g=>[g.key,g.candidates[0].number]));
  updatePatternFromSelections();
  renderPattern();
@@ -340,7 +351,7 @@ convertBtn.addEventListener('click',()=>{
  document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  renderPalette();
- downloadBtn.disabled=false;downloadDataBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
 function updatePatternFromSelections(){
@@ -359,6 +370,13 @@ function renderPalette(){
    const de=deltaE2000(rgbToLab(g.rgb),rgbToLab(bead.rgb));
    const percent=similarityPercent(de);
    const el=document.createElement('div');el.className='swatch';
+   el.setAttribute('role','button');el.setAttribute('tabindex','0');
+   el.setAttribute('aria-pressed',String(selectedManagerNo===g.managerNo));
+   el.setAttribute('aria-label',`色番号${g.managerNo}を図案でハイライト`);
+   if(selectedManagerNo===g.managerNo)el.classList.add('is-selected');
+   const toggleHighlight=()=>{selectedManagerNo=selectedManagerNo===g.managerNo?null:g.managerNo;renderPattern();renderPalette()};
+   el.addEventListener('click',toggleHighlight);
+   el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleHighlight()}});
    const swatch=document.createElement('span');swatch.className='color';
    swatch.style.background=`rgb(${bead.rgb.join(',')})`;
    const info=document.createElement('div');info.className='swatch-info';
@@ -387,7 +405,8 @@ function renderPalette(){
      select.append(option);
    });
    select.value=bead.number;
-   select.addEventListener('change',()=>{
+   select.addEventListener('click',event=>event.stopPropagation());
+   select.addEventListener('change',event=>{
      beadSelection.set(g.key,select.value);
      updatePatternFromSelections();renderPattern();renderPalette();
      document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
@@ -396,20 +415,11 @@ function renderPalette(){
    el.append(swatch,info);pal.append(el);
  });
 }
-downloadBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=canvas.toDataURL('image/png');a.click()});
-
-downloadDataBtn.addEventListener('click',()=>{
- if(!lastRawColors||!sourceColors||!lastColors||!lastNumbers)return;
- const rows=['列,行,抽出RGB_R,抽出RGB_G,抽出RGB_B,統合後RGB_R,統合後RGB_G,統合後RGB_B,管理番号,NicoRate番号,ビーズRGB_R,ビーズRGB_G,ビーズRGB_B'];
- for(let y=0;y<lastRawColors.length;y++)for(let x=0;x<lastRawColors[y].length;x++){
-  const raw=lastRawColors[y][x],merged=sourceColors[y][x],bead=lastColors[y][x];
-  const group=colorGroups.find(g=>g.key===merged.join(','));
-  const beadNo=group?beadSelection.get(group.key):'';
-  rows.push([x+1,y+1,...raw,...merged,lastNumbers[y][x],beadNo,...bead].join(','));
- }
- const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8;'});
- const a=document.createElement('a');a.download='NIGO_BEADS_STUDIO_verification_RGB.csv';a.href=URL.createObjectURL(blob);a.click();URL.revokeObjectURL(a.href);
+downloadBtn.addEventListener('click',()=>{
+ const exportCanvas=document.createElement('canvas');
+ const exportCtx=exportCanvas.getContext('2d');
+ drawPattern(exportCtx,null);
+ const a=document.createElement('a');a.download='beads-pattern-numbered.png';a.href=exportCanvas.toDataURL('image/png');a.click();
 });
-
 </script>
 </body></html>
