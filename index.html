@@ -24,6 +24,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 .stats{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
 .preview-wrap{overflow:auto;max-height:75vh;background:#eee;padding:10px;border-radius:8px;text-align:center}
 #result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
+#result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
 #palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
 .swatch{display:flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:7px;padding:6px;font-size:12px}
 .color{width:25px;height:25px;border:1px solid #999;flex:none}
@@ -67,6 +68,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </select></label>
 <button id="gridToggle" class="active" type="button">マス目：ON</button>
 <button id="numberToggle" class="active" type="button">番号：ON</button>
+<button id="sourceViewToggle" type="button" disabled>元画像を見る</button>
 <button id="flipH" type="button">左右反転</button>
 <button id="flipV" type="button">上下反転</button>
 </div>
@@ -87,7 +89,9 @@ let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
 const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
 const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById('flipV');
 const zoomSelect=document.getElementById('zoomSelect');
+const sourceViewToggle=document.getElementById('sourceViewToggle');
 let previewZoom=1;
+let showingSource=false;
 function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=reject;im.src=u})}
 async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sourceInput.files[0]):null;gridImg=gridInput.files[0]?await loadImage(gridInput.files[0]):null;convertBtn.disabled=!(sourceImg&&gridImg);statusEl.textContent=convertBtn.disabled?'2枚の画像を選択してください。':'画像を読み込みました。図案に変換できます。';}catch(e){statusEl.textContent='画像を読み込めませんでした。PNG/JPEG画像を確認してください。'}}
 sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
@@ -201,37 +205,55 @@ function sampleMedian3x3(d,x,y){
  const median=a=>{a.sort((u,v)=>u-v);return a[4]};
  return [median(rs),median(gs),median(bs)];
 }
-function drawPattern(targetCtx,highlightManagerNo=null){
+function drawPattern(targetCtx,highlightManagerNo=null,withCoordinates=false,originalView=false){
  if(!lastColors)return;
  const rows=lastColors.length,cols=lastColors[0].length,cell=24;
- targetCtx.canvas.width=cols*cell;targetCtx.canvas.height=rows*cell;
+ const left=withCoordinates?38:0,top=withCoordinates?30:0;
+ targetCtx.canvas.width=cols*cell+left;targetCtx.canvas.height=rows*cell+top;
+ targetCtx.fillStyle='#fff';targetCtx.fillRect(0,0,targetCtx.canvas.width,targetCtx.canvas.height);
  targetCtx.imageSmoothingEnabled=false;
- for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-   const sx=flipHorizontal?cols-1-x:x,sy=flipVertical?rows-1-y:y;
-   const originalColor=lastColors[sy][sx],number=lastNumbers[sy][sx];
-   const isDimmed=highlightManagerNo!==null && number!==highlightManagerNo;
-   const color=isDimmed?[211,211,211]:originalColor;
-   targetCtx.fillStyle=`rgb(${color.join(',')})`;targetCtx.fillRect(x*cell,y*cell,cell,cell);
-   if(showGrid){targetCtx.strokeStyle='#222';targetCtx.lineWidth=1;targetCtx.strokeRect(x*cell+.5,y*cell+.5,cell,cell)}
-   if(showNumbers){
-     const luminance=.299*color[0]+.587*color[1]+.114*color[2];
-     targetCtx.fillStyle=luminance>150?'#111':'#fff';
-     targetCtx.font='bold 13px Arial,sans-serif';targetCtx.textAlign='center';targetCtx.textBaseline='middle';
-     targetCtx.fillText(String(number),x*cell+cell/2,y*cell+cell/2);
+ if(originalView&&sourceImg){
+   targetCtx.save();
+   targetCtx.translate(left,top);
+   targetCtx.scale(flipHorizontal?-1:1,flipVertical?-1:1);
+   targetCtx.drawImage(sourceImg,flipHorizontal?-cols*cell:0,flipVertical?-rows*cell:0,cols*cell,rows*cell);
+   targetCtx.restore();
+ } else {
+   for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+     const sx=flipHorizontal?cols-1-x:x,sy=flipVertical?rows-1-y:y;
+     const originalColor=lastColors[sy][sx],number=lastNumbers[sy][sx];
+     const isDimmed=highlightManagerNo!==null && number!==highlightManagerNo;
+     const color=isDimmed?[211,211,211]:originalColor;
+     targetCtx.fillStyle=`rgb(${color.join(',')})`;targetCtx.fillRect(left+x*cell,top+y*cell,cell,cell);
+     if(showGrid){targetCtx.strokeStyle='#222';targetCtx.lineWidth=1;targetCtx.strokeRect(left+x*cell+.5,top+y*cell+.5,cell,cell)}
+     if(showNumbers){
+       const luminance=.299*color[0]+.587*color[1]+.114*color[2];
+       targetCtx.fillStyle=luminance>150?'#111':'#fff';
+       targetCtx.font='bold 13px Arial,sans-serif';targetCtx.textAlign='center';targetCtx.textBaseline='middle';
+       targetCtx.fillText(String(number),left+x*cell+cell/2,top+y*cell+cell/2);
+     }
    }
+ }
+ if(withCoordinates){
+   targetCtx.fillStyle='#222';targetCtx.font='11px Arial,sans-serif';targetCtx.textAlign='center';targetCtx.textBaseline='middle';
+   for(let x=0;x<cols;x++)targetCtx.fillText(String(x+1),left+(x+.5)*cell,top/2);
+   for(let y=0;y<rows;y++)targetCtx.fillText(String(y+1),left/2,top+(y+.5)*cell);
  }
 }
 function renderPattern(){
  if(!lastColors)return;
- drawPattern(ctx,selectedManagerNo);
+ drawPattern(ctx,selectedManagerNo,true,showingSource);
  canvas.style.width=(canvas.width*previewZoom)+'px';
  canvas.style.height=(canvas.height*previewZoom)+'px';
+ sourceViewToggle.textContent=showingSource?'変換後の図案を見る':'元画像を見る';
+ sourceViewToggle.classList.toggle('active',showingSource);
 }
 zoomSelect.addEventListener('change',()=>{previewZoom=Number(zoomSelect.value)||1;renderPattern()});
 gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textContent=`マス目：${showGrid?'ON':'OFF'}`;gridToggle.classList.toggle('active',showGrid);renderPattern()});
 numberToggle.addEventListener('click',()=>{showNumbers=!showNumbers;numberToggle.textContent=`番号：${showNumbers?'ON':'OFF'}`;numberToggle.classList.toggle('active',showNumbers);renderPattern()});
 flipHBtn.addEventListener('click',()=>{flipHorizontal=!flipHorizontal;flipHBtn.classList.toggle('active',flipHorizontal);renderPattern()});
 flipVBtn.addEventListener('click',()=>{flipVertical=!flipVertical;flipVBtn.classList.toggle('active',flipVertical);renderPattern()});
+sourceViewToggle.addEventListener('click',()=>{showingSource=!showingSource;renderPattern()});
 
 // Shirobea公開ソースに登録されているNicoRate RGBデータ（173色）。
 // RGB値と名称は同ソースの登録内容を保持し、未登録色は推測で補完しない。
@@ -344,6 +366,7 @@ convertBtn.addEventListener('click',()=>{
  }));
  colorGroups=[...grouped.values()].map((g,i)=>({...g,managerNo:i+1,candidates:findClosestNicoRate(g.rgb)}));
  selectedManagerNo=null;
+ showingSource=false;sourceViewToggle.disabled=false;
  beadSelection=new Map(colorGroups.map(g=>[g.key,g.candidates[0].number]));
  updatePatternFromSelections();
  renderPattern();
@@ -429,7 +452,7 @@ downloadBtn.addEventListener('click',()=>{
  // 画面のハイライト状態に関係なく、全色の図案を別キャンバスに描画する。
  const patternCanvas=document.createElement('canvas');
  const patternCtx=patternCanvas.getContext('2d');
- drawPattern(patternCtx,null);
+ drawPattern(patternCtx,null,false,false);
 
  const exportCanvas=document.createElement('canvas');
  exportCanvas.width=canvasWidth;exportCanvas.height=canvasHeight;
