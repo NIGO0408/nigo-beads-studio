@@ -25,7 +25,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 .preview-wrap{overflow:auto;max-height:75vh;background:#eee;padding:10px;border-radius:8px;text-align:center}
 #result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
 #result{display:block;max-width:none;height:auto;margin:0 auto;image-rendering:pixelated;background:white}
-#palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
+#nearColorReview{display:grid;gap:9px}.near-review-summary{padding:7px 0}.near-pair{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #ddd;border-radius:8px;padding:10px}.near-side{display:flex;align-items:center;gap:6px;font-size:12px}.near-side .color{width:30px;height:30px}.near-actions{display:flex;gap:6px;flex-wrap:wrap}.near-actions button{padding:7px 10px;font-size:12px}.near-actions button.keep{background:#666}#palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px}
 .swatch{display:flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:7px;padding:6px;font-size:12px}
 .color{width:25px;height:25px;border:1px solid #999;flex:none}
 .swatch{align-items:flex-start;min-width:0;padding:7px}
@@ -38,6 +38,12 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 .swatch.is-selected{border:2px solid #4d2b91;background:#f1ebfb;padding:6px}
 .swatch:focus-visible{outline:2px solid #4d2b91;outline-offset:2px}
 @media(max-width:600px){header h1{font-size:18px}.panel{padding:12px}}
+
+.near-review-title{font-size:17px;font-weight:700;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.near-review-title::-webkit-details-marker{display:none}
+.near-review-title::after{content:'▾';font-size:15px;color:#666;transition:transform .15s}
+#nearReviewDetails:not([open]) .near-review-title::after{content:'▸'}
+.near-review-content{padding-top:12px}
 </style>
 </head>
 <body>
@@ -64,7 +70,7 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 <div class="view-controls">
 <label style="display:flex;align-items:center;gap:6px;font-size:13px">表示倍率
 <select id="zoomSelect" style="width:auto;padding:8px;border:1px solid #bbb;border-radius:6px">
-<option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option>
+<option value="fit" selected>全体表示</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option>
 </select></label>
 <button id="gridToggle" class="active" type="button">マス目：ON</button>
 <button id="numberToggle" class="active" type="button">番号：ON</button>
@@ -74,8 +80,17 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 </div>
 <div class="preview-wrap"><canvas id="result"></canvas></div>
 </section>
+<section class="panel near-review-panel">
+<details id="nearReviewDetails" open>
+<summary class="near-review-title">３．近似値の確認・整理</summary>
+<div class="near-review-content">
+<p class="note">RGB距離6以内でビーズ候補が異なる色を確認します。「統合する」か「別々にする」を選ぶと色一覧と図案に反映されます。同じビーズ候補の近似色は自動統合されます。判断内容はこのブラウザーに保存されます。</p>
+<div id="nearColorReview" class="note">変換すると確認が必要な近似色が表示されます。</div>
+</div>
+</details>
+</section>
 <section class="panel">
-<h2>3. NicoRate対応色と使用数</h2>
+<h2>4. NicoRate対応色と使用数</h2>
 <p class="note">Shirobea公開データのNicoRate RGB情報173色をCIEDE2000で比較します。近似度％は色差を換算した参考値です。ビーズ色は一覧から手動変更できます。</p><div id="palette" class="note">変換すると近似するビーズNoと色名が表示されます。</div>
 </section>
 </main>
@@ -83,7 +98,10 @@ button:disabled{opacity:.45;cursor:not-allowed}.actions{display:flex;gap:10px;al
 const sourceInput=document.getElementById('sourceFile'), gridInput=document.getElementById('gridFile');
 const convertBtn=document.getElementById('convert'), downloadBtn=document.getElementById('download');
 const statusEl=document.getElementById('status'), canvas=document.getElementById('result'), ctx=canvas.getContext('2d',{willReadFrequently:true});
-let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,colorGroups=[],beadSelection=new Map();
+let sourceImg=null,gridImg=null,lastColors=null,lastNumbers=null,sourceColors=null,colorGroups=[],beadSelection=new Map(),rawColorGroups=[],nearColorPairs=[],autoMergePairs=[];
+const nearDecisionStoreKey="nigoBeadsNearColorDecisions_v1";
+let nearColorDecisions={};
+try{nearColorDecisions=JSON.parse(localStorage.getItem(nearDecisionStoreKey)||"{}")}catch(e){nearColorDecisions={}}
 let selectedManagerNo=null;
 let showGrid=true,showNumbers=true,flipHorizontal=false,flipVertical=false;
 const gridToggle=document.getElementById('gridToggle'),numberToggle=document.getElementById('numberToggle');
@@ -91,7 +109,20 @@ const flipHBtn=document.getElementById('flipH'),flipVBtn=document.getElementById
 const zoomSelect=document.getElementById('zoomSelect');
 const sourceViewToggle=document.getElementById('sourceViewToggle');
 let previewZoom=1;
+let fitToView=true;
 let showingSource=false;
+const previewWrap=document.querySelector('.preview-wrap');
+function calculateFitZoom(){
+ if(!canvas.width||!canvas.height||!previewWrap)return 1;
+ const availableWidth=Math.max(100,previewWrap.clientWidth-20);
+ const availableHeight=Math.max(100,Math.min(window.innerHeight*.75,previewWrap.clientHeight||window.innerHeight*.75)-20);
+ return Math.min(1,availableWidth/canvas.width,availableHeight/canvas.height);
+}
+function updatePreviewZoom(){
+ previewZoom=fitToView?calculateFitZoom():previewZoom;
+ canvas.style.width=Math.max(1,canvas.width*previewZoom)+'px';
+ canvas.style.height=Math.max(1,canvas.height*previewZoom)+'px';
+}
 function loadImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=reject;im.src=u})}
 async function refresh(){try{sourceImg=sourceInput.files[0]?await loadImage(sourceInput.files[0]):null;gridImg=gridInput.files[0]?await loadImage(gridInput.files[0]):null;convertBtn.disabled=!(sourceImg&&gridImg);statusEl.textContent=convertBtn.disabled?'2枚の画像を選択してください。':'画像を読み込みました。図案に変換できます。';}catch(e){statusEl.textContent='画像を読み込めませんでした。PNG/JPEG画像を確認してください。'}}
 sourceInput.addEventListener('change',refresh);gridInput.addEventListener('change',refresh);
@@ -243,12 +274,16 @@ function drawPattern(targetCtx,highlightManagerNo=null,withCoordinates=false,ori
 function renderPattern(){
  if(!lastColors)return;
  drawPattern(ctx,selectedManagerNo,true,showingSource);
- canvas.style.width=(canvas.width*previewZoom)+'px';
- canvas.style.height=(canvas.height*previewZoom)+'px';
+ updatePreviewZoom();
  sourceViewToggle.textContent=showingSource?'変換後の図案を見る':'元画像を見る';
  sourceViewToggle.classList.toggle('active',showingSource);
 }
-zoomSelect.addEventListener('change',()=>{previewZoom=Number(zoomSelect.value)||1;renderPattern()});
+zoomSelect.addEventListener('change',()=>{
+ fitToView=zoomSelect.value==='fit';
+ if(!fitToView)previewZoom=Number(zoomSelect.value)||1;
+ renderPattern();
+});
+window.addEventListener('resize',()=>{if(fitToView&&lastColors)renderPattern()});
 gridToggle.addEventListener('click',()=>{showGrid=!showGrid;gridToggle.textContent=`マス目：${showGrid?'ON':'OFF'}`;gridToggle.classList.toggle('active',showGrid);renderPattern()});
 numberToggle.addEventListener('click',()=>{showNumbers=!showNumbers;numberToggle.textContent=`番号：${showNumbers?'ON':'OFF'}`;numberToggle.classList.toggle('active',showNumbers);renderPattern()});
 flipHBtn.addEventListener('click',()=>{flipHorizontal=!flipHorizontal;flipHBtn.classList.toggle('active',flipHorizontal);renderPattern()});
@@ -319,72 +354,110 @@ convertBtn.addEventListener('click',()=>{
  const sx=gx*sd.w/gd.w,sy=gy*sd.h/gd.h;
  row.push(sampleMedian3x3(sd,sx,sy));
  }rawColors.push(row)}
- // RGB近似統合：まず全RGBをグループ化し、代表色を確定してから全マスへ一括反映する。
- // これにより、途中で代表RGBが更新されても先に処理したマスだけ古い色が残る問題を防ぐ。
- const tolerance=6,clusters=[];
- const uniqueCounts=new Map();
+ // まず完全一致するRGBを集計し、近似色の扱いは下で候補ビーズ番号も含めて判定する。
+ sourceColors=rawColors.map(row=>row.map(rgb=>[...rgb]));
+ const exactCounts=new Map();
  rawColors.forEach(row=>row.forEach(rgb=>{
-   const key=rgb.join(',');
-   uniqueCounts.set(key,(uniqueCounts.get(key)||0)+1);
+   const key=rgb.join(',');exactCounts.set(key,(exactCounts.get(key)||0)+1);
  }));
- const uniqueColors=[...uniqueCounts.entries()].map(([key,count])=>({rgb:key.split(',').map(Number),count}));
- // 出現数の多い色から代表色を作り、近い色をそのグループへ加える。
- uniqueColors.sort((a,b)=>b.count-a.count);
- uniqueColors.forEach(item=>{
-   let best=-1,bestDist=Infinity;
-   for(let i=0;i<clusters.length;i++){
-     const c=clusters[i],dr=item.rgb[0]-c.rgb[0],dg=item.rgb[1]-c.rgb[1],db=item.rgb[2]-c.rgb[2];
-     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
-     if(dist<=tolerance&&dist<bestDist){best=i;bestDist=dist}
+ rawColorGroups=[...exactCounts.entries()].map(([key,count])=>({key,rgb:key.split(',').map(Number),count,candidates:findClosestNicoRate(key.split(',').map(Number))}));
+ nearColorPairs=[];autoMergePairs=[];
+ for(let i=0;i<rawColorGroups.length;i++)for(let j=i+1;j<rawColorGroups.length;j++){
+   const a=rawColorGroups[i],b=rawColorGroups[j];
+   const dist=Math.hypot(a.rgb[0]-b.rgb[0],a.rgb[1]-b.rgb[1],a.rgb[2]-b.rgb[2]);
+   if(dist<=6){
+     const pair={aKey:a.key,bKey:b.key};
+     if(a.candidates[0].number===b.candidates[0].number){
+       // 同じNicoRateビーズ候補なら人に確認させず、自動で同じ管理番号へ統合する。
+       autoMergePairs.push(pair);
+     }else{
+       // 異なるNicoRateビーズ候補の場合だけ、人に統合／別々を確認する。
+       const pairKey=[a.key,b.key].sort().join('|');
+       nearColorPairs.push({key:pairKey,aKey:a.key,bKey:b.key,distance:dist,decision:nearColorDecisions[pairKey]||'pending'});
+     }
    }
-   if(best<0){
-     clusters.push({sum:item.rgb.map(v=>v*item.count),count:item.count,rgb:[...item.rgb]});
-   }else{
-     const c=clusters[best];
-     c.sum=c.sum.map((v,i)=>v+item.rgb[i]*item.count);
-     c.count+=item.count;
-     c.rgb=c.sum.map(v=>Math.round(v/c.count));
-   }
- });
- // 最終的に確定した代表色へ全セルを再割り当てする。
- const colors=rawColors.map(row=>row.map(rgb=>{
-   let best=0,bestDist=Infinity;
-   clusters.forEach((c,i)=>{
-     const dr=rgb[0]-c.rgb[0],dg=rgb[1]-c.rgb[1],db=rgb[2]-c.rgb[2];
-     const dist=Math.sqrt(dr*dr+dg*dg+db*db);
-     if(dist<bestDist){best=i;bestDist=dist}
-   });
-   return [...clusters[best].rgb];
- }));
- // 抽出した図案色ごとにCIEDE2000で候補を検索する。
- sourceColors=colors.map(row=>row.map(rgb=>[...rgb]));
- const grouped=new Map();
- colors.forEach((row,y)=>row.forEach((rgb,x)=>{
-   const key=rgb.join(',');
-   if(!grouped.has(key))grouped.set(key,{key,rgb:[...rgb],count:0});
-   grouped.get(key).count++;
- }));
- colorGroups=[...grouped.values()].map((g,i)=>({...g,managerNo:i+1,candidates:findClosestNicoRate(g.rgb)}));
+ }
+ rebuildColorGroups();
  selectedManagerNo=null;
+ fitToView=true;zoomSelect.value='fit';previewZoom=1;
  showingSource=false;sourceViewToggle.disabled=false;
- beadSelection=new Map(colorGroups.map(g=>[g.key,g.candidates[0].number]));
+ beadSelection=new Map(colorGroups.map(g=>[g.key,g.defaultBeadNumber]));
  updatePatternFromSelections();
  renderPattern();
  document.getElementById('dimensions').textContent=`マス目：${grid.cols}列 × ${grid.rows}行`;
  document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
  document.getElementById('cells').textContent=`総マス数：${grid.cols*grid.rows}`;
  renderPalette();
- downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\nRGB近似統合：距離 ${tolerance} 以下\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
+ downloadBtn.disabled=false;statusEl.textContent=`変換しました。\n検出結果：${grid.cols}列 × ${grid.rows}行（格子間隔 横${grid.pitchX.toFixed(2)}px／縦${grid.pitchY.toFixed(2)}px）\n近似色確認：同じ候補はRGB距離6以内で自動統合、異なる候補のみRGB距離6以内で確認\nNicoRate照合：Shirobea登録RGB 173色をCIEDE2000で比較\n近似度％はΔE2000を換算したアプリ独自の参考値です。\n色ごとに管理番号を付与しました。`;
  }catch(e){statusEl.textContent='変換できませんでした：'+e.message}
 });
+function rebuildColorGroups(){
+ const parent=new Map(rawColorGroups.map(g=>[g.key,g.key]));
+ const find=k=>{while(parent.get(k)!==k){parent.set(k,parent.get(parent.get(k)));k=parent.get(k)}return k};
+ // 同じビーズ候補かつRGB距離6以内は常に自動統合する。
+ autoMergePairs.forEach(pair=>parent.set(find(pair.bKey),find(pair.aKey)));
+ // 異なるビーズ候補の組み合わせだけ、ユーザーの判断に従って統合する。
+ nearColorPairs.forEach(pair=>{if(nearColorDecisions[pair.key]==='merge')parent.set(find(pair.bKey),find(pair.aKey))});
+ const buckets=new Map();
+ rawColorGroups.forEach(g=>{const root=find(g.key);if(!buckets.has(root))buckets.set(root,[]);buckets.get(root).push(g)});
+ colorGroups=[...buckets.values()].map((members,i)=>{
+   const count=members.reduce((n,g)=>n+g.count,0);
+   const rgb=[0,1,2].map(k=>Math.round(members.reduce((n,g)=>n+g.rgb[k]*g.count,0)/count));
+   const key=members.map(g=>g.key).sort().join('~');
+   const candidates=findClosestNicoRate(rgb);
+   const memberBeadNumbers=[...new Set(members.map(g=>g.candidates[0].number))];
+   const defaultBeadNumber=memberBeadNumbers.length===1?memberBeadNumbers[0]:candidates[0].number;
+   return {key,rgb,count,managerNo:i+1,members,candidates,defaultBeadNumber};
+ });
+ const previous=beadSelection;beadSelection=new Map();
+ colorGroups.forEach(g=>{
+   const old= g.members.map(m=>previous.get(m.key)).find(Boolean);
+   const valid=g.candidates.some(c=>c.number===old);
+   beadSelection.set(g.key,valid?old:g.defaultBeadNumber);
+ });
+ updatePatternFromSelections();
+ renderPalette();renderNearColorReview();
+ document.getElementById('count').textContent=`使用ビーズ色数：${new Set(beadSelection.values()).size}`;
+}
 function updatePatternFromSelections(){
- const groupByKey=new Map(colorGroups.map(g=>[g.key,g]));
+ const groupByRawKey=new Map();colorGroups.forEach(g=>g.members.forEach(m=>groupByRawKey.set(m.key,g)));
  lastColors=sourceColors.map(row=>row.map(rgb=>{
-   const g=groupByKey.get(rgb.join(','));
+   const g=groupByRawKey.get(rgb.join(','));
    const bead=nicoRatePalette.find(b=>b.number===beadSelection.get(g.key))||g.candidates[0];
    return [...bead.rgb];
  }));
- lastNumbers=sourceColors.map(row=>row.map(rgb=>groupByKey.get(rgb.join(',')).managerNo));
+ lastNumbers=sourceColors.map(row=>row.map(rgb=>groupByRawKey.get(rgb.join(',')).managerNo));
+}
+function renderNearColorReview(){
+ const host=document.getElementById('nearColorReview');host.innerHTML='';
+ const pending=nearColorPairs.filter(pair=>(nearColorDecisions[pair.key]||'pending')==='pending');
+ const resolved=nearColorPairs.length-pending.length;
+ const reviewDetails=document.getElementById('nearReviewDetails');
+ if(reviewDetails){if(pending.length>0)reviewDetails.open=true;else if(nearColorPairs.length>0)reviewDetails.open=false;}
+ const summary=document.createElement('div');summary.className='note';
+ summary.textContent=`未確認：${pending.length}件 ／ 判断済み：${resolved}件（統合 ${nearColorPairs.filter(p=>nearColorDecisions[p.key]==='merge').length}件・別々 ${nearColorPairs.filter(p=>nearColorDecisions[p.key]==='separate').length}件）`;
+ host.append(summary);
+ if(!pending.length){const done=document.createElement('div');done.className='note';done.textContent=nearColorPairs.length?'すべての近似色を確認しました。判断済みの内容は色一覧に反映されています。':'RGB距離6以内の近似色は見つかりませんでした。';host.append(done);return}
+ pending.forEach(pair=>{
+   const a=rawColorGroups.find(g=>g.key===pair.aKey),b=rawColorGroups.find(g=>g.key===pair.bKey);
+   if(!a||!b)return;
+   const card=document.createElement('div');card.className='near-pair';
+   const side=(g)=>{const wrap=document.createElement('div');wrap.className='near-side';const sw=document.createElement('span');sw.className='color';sw.style.background=`rgb(${g.rgb.join(',')})`;const label=document.createElement('span');const owner=colorGroups.find(group=>group.members.some(member=>member.key===g.key));const managerNo=owner?owner.managerNo:'未割当';label.textContent=`色一覧 No.${managerNo} · RGB(${g.rgb.join(', ')}) · ${g.count}マス · ${g.candidates[0].number} ${g.candidates[0].name} · ΔE2000 ${g.candidates[0].deltaE.toFixed(2)} · 近似度 ${similarityPercent(g.candidates[0].deltaE).toFixed(1)}%`;const cells=[];sourceColors.forEach((row,y)=>row.forEach((rgb,x)=>{if(rgb.join(',')===g.key)cells.push(`${x+1}列${y+1}行`)}));const locations=document.createElement('div');locations.style.fontSize='11px';locations.style.marginTop='4px';locations.textContent=`使用位置（${cells.length}マス）：${cells.length?cells.join('、'):'位置情報なし'}`;wrap.append(sw,label,locations);if(owner){wrap.style.cursor='pointer';wrap.title='クリックすると色一覧の該当番号をハイライト';wrap.addEventListener('click',()=>{selectedManagerNo=owner.managerNo;renderPattern();renderPalette()})}return wrap};
+   const info=document.createElement('div');info.style.fontSize='12px';
+   const sameCandidate=a.candidates[0].number===b.candidates[0].number;
+   info.textContent=`RGB距離 ${pair.distance.toFixed(2)} ／ ビーズ候補：${sameCandidate?'同じ':'異なる'}（どちらも確認対象）`;
+   const actions=document.createElement('div');actions.className='near-actions';
+   const merge=document.createElement('button');merge.textContent='統合する';
+   merge.addEventListener('click',()=>setNearDecision(pair,'merge'));
+   const separate=document.createElement('button');separate.className='keep';separate.textContent='別々にする';
+   separate.addEventListener('click',()=>setNearDecision(pair,'separate'));
+   actions.append(merge,separate);card.append(side(a),document.createTextNode('↔'),side(b),info,actions);host.append(card);
+ });
+}
+function setNearDecision(pair,decision){
+ nearColorDecisions[pair.key]=decision;pair.decision=decision;
+ try{localStorage.setItem(nearDecisionStoreKey,JSON.stringify(nearColorDecisions))}catch(e){statusEl.textContent='判断内容をブラウザーに保存できませんでした。'}
+ selectedManagerNo=null;rebuildColorGroups();renderPattern();
 }
 function renderPalette(){
  const pal=document.getElementById('palette');pal.innerHTML='';
